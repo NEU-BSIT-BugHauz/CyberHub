@@ -1,10 +1,24 @@
+
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
+const connectPgSimple = require('connect-pg-simple');
+
 require('dotenv').config();
+
+const { pool } = require('./config/db');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+const isProduction = process.env.NODE_ENV === 'production';
+const sessionSecret = process.env.SESSION_SECRET;
+
+if (isProduction && !sessionSecret) {
+  throw new Error('SESSION_SECRET must be configured in production.');
+}
+
+const PgSessionStore = connectPgSimple(session);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -12,13 +26,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
     name: 'sid',
-    secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+    store: new PgSessionStore({
+      pool,
+      tableName: 'user_sessions',
+      createTableIfMissing: false,
+    }),
+    secret: sessionSecret || 'development-only-secret-change-this',
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
       maxAge: 1000 * 60 * 60 * 8,
     },
   })
@@ -26,21 +45,42 @@ app.use(
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/api/health', (_req, res) => {
-  res.json({
-    ok: true,
-    db: process.env.DATABASE_URL ? 'configured (not connected)' : 'not configured',
+
+app.get('/api/health', async (_req, res) => {
+  let database = 'not configured';
+
+  if (process.env.DATABASE_URL) {
+    try {
+      await pool.query('SELECT 1');
+      database = 'connected';
+    } catch (err) {
+      console.error('Database health check failed:', err.message);
+      database = 'unavailable';
+    }
+  }
+
+  const ok = database === 'connected';
+
+  res.status(ok ? 200 : 503).json({
+    ok,
+    api: 'CyberHub',
+    database,
     timestamp: new Date().toISOString(),
   });
 });
 
+// Authentication routes
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
+
 app.use((err, _req, res, _next) => {
   console.error(err);
+
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`CyberHub server running at http://localhost:${PORT}`);
 });
