@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyberHub — Scaffold</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>Project Scaffold Ready</h1>
+    <p class="muted">Sprint 1 • S1-DEV-01 baseline app skeleton and PostgreSQL check.</p>
+    <div id="db-status" class="status-badge">Checking database connection...</div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    (async () => {
+      const badge = document.getElementById('db-status');
+      try {
+        const health = await apiRequest('/api/health');
+        badge.textContent = `API & DB: ${health.db}`;
+      } catch (err) {
+        badge.textContent = `Error: ${err.message}`;
+      }
+    })();
+  </script>
+</body>
+</html>
