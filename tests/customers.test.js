@@ -260,3 +260,71 @@ describe('CyberHub Customer API', () => {
     });
   });
 });
+
+describe('S2-DEV-02 customer create and edit', () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  test('creates a customer with permission', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockResolvedValueOnce({ rows: [createCustomer()] });
+    const response = await request(app).post('/api/customers').set('x-user-id', '1')
+      .send(createCustomer());
+    expect(response.status).toBe(201);
+    expect(response.body.customer.custno).toBe('CUST001');
+  });
+
+  test('edits an existing customer with permission', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockResolvedValueOnce({ rows: [createCustomer({ custname: 'Updated' })] });
+    const response = await request(app).put('/api/customers/CUST001').set('x-user-id', '1')
+      .send({ custname: 'Updated', address: 'Manila', payterm: 'COD' });
+    expect(response.status).toBe(200);
+    expect(response.body.customer.custname).toBe('Updated');
+  });
+
+  test('rejects invalid payment terms', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] });
+    const response = await request(app).post('/api/customers').set('x-user-id', '1')
+      .send(createCustomer({ payterm: '90D' }));
+    expect(response.status).toBe(400);
+  });
+
+  test('rejects changing customer number during edit', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] });
+    const response = await request(app).put('/api/customers/CUST001').set('x-user-id', '1')
+      .send(createCustomer({ custno: 'CUST002' }));
+    expect(response.status).toBe(400);
+  });
+
+  test('rejects duplicate customer numbers', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockRejectedValueOnce({ code: '23505' });
+    const response = await request(app).post('/api/customers').set('x-user-id', '1')
+      .send(createCustomer());
+    expect(response.status).toBe(409);
+  });
+
+  test('returns 404 when editing a missing customer', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockResolvedValueOnce({ rows: [] });
+    const response = await request(app).put('/api/customers/CUST001').set('x-user-id', '1')
+      .send({ custname: 'Updated', payterm: 'COD' });
+    expect(response.status).toBe(404);
+  });
+
+  test('rejects create without can_create permission', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] })
+      .mockResolvedValueOnce({ rows: [{ module_name: 'Customer', can_view: true, can_create: false, can_edit: true }] });
+    const response = await request(app).post('/api/customers').set('x-user-id', '1')
+      .send(createCustomer());
+    expect(response.status).toBe(403);
+  });
+
+  test('rejects edit without can_edit permission', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] })
+      .mockResolvedValueOnce({ rows: [{ module_name: 'Customer', can_view: true, can_create: true, can_edit: false }] });
+    const response = await request(app).put('/api/customers/CUST001').set('x-user-id', '1')
+      .send(createCustomer());
+    expect(response.status).toBe(403);
+  });
+});

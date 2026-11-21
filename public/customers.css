@@ -1,0 +1,13 @@
+/* Customer list and create/edit workspace */
+.customer-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
+.customer-filters { display:flex; align-items:end; gap:1rem; flex-wrap:wrap; margin:1rem 0; }
+.customer-filters label, .customer-editor label { display:flex; flex-direction:column; gap:.4rem; color:var(--text); }
+.customer-filters input, .customer-filters select, .customer-editor input, .customer-editor select, .customer-editor textarea { width:100%; padding:.65rem; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text); }
+.customer-search-field { flex:2; min-width:200px; } .customer-payment-field { flex:1; min-width:160px; }
+.customer-filter-actions, .customer-editor-actions { display:flex; gap:.6rem; flex-wrap:wrap; }
+.customer-editor { margin:1rem 0; padding:1rem; border:1px solid var(--border); border-radius:8px; }
+.customer-editor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin:1rem 0; }
+.customer-table { width:100%; border-collapse:collapse; }
+.customer-table th, .customer-table td { padding:.8rem; text-align:left; border-bottom:1px solid var(--border); }
+.customer-table th { color:var(--muted); } .customer-number { font-weight:700; }
+.customer-payment-badge { padding:.2rem .55rem; border-radius:12px; background:var(--surface-light); }
