@@ -45,7 +45,6 @@ app.use(
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-
 app.get('/api/health', async (_req, res) => {
   let database = 'not configured';
 
@@ -73,6 +72,11 @@ app.get('/api/health', async (_req, res) => {
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
+// Password reset routes
+const passwordResetRoutes = require('./routes/passwordReset');
+app.use('/api/auth', passwordResetRoutes);
+
+// Global error handler
 app.use((err, _req, res, _next) => {
   console.error(err);
 
