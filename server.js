@@ -89,6 +89,10 @@ app.use('/api/permissions', permissionsRoutes);
 const customersRoutes = require('./routes/customers');
 app.use('/api/customers', customersRoutes);
 
+// PRODUCT MANAGEMENT ROUTES
+const productsRoutes = require('./routes/products');
+app.use('/api/products', productsRoutes);
+
 // GLOBAL ERROR HANDLER
 app.use((err, _req, res, _next) => {
   console.error(err);
