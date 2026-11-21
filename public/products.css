@@ -187,3 +187,29 @@
   opacity: 0.75;
   cursor: not-allowed;
 }
+
+/* S2-DEV-08: current effective price in the list and price history */
+.product-price-effective {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: normal;
+  white-space: nowrap;
+  margin-top: 0.2rem;
+}
+
+.product-current-price-card {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.product-current-price-label { font-weight: 600; }
+.product-current-price-card strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.product-current-price-card .muted { font-size: 0.82rem; }

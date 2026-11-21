@@ -133,11 +133,12 @@
               <th scope="col">Product Code</th>
               <th scope="col">Description</th>
               <th scope="col">Unit</th>
+              <th scope="col">Current Price</th>
               <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody id="product-table-body">
-            <tr><td colspan="4" class="empty-state">Open the Product module to load records.</td></tr>
+            <tr><td colspan="5" class="empty-state">Open the Product module to load records.</td></tr>
           </tbody>
         </table>
       </div>
@@ -149,6 +150,11 @@
             <p class="muted">Prices by effective date. Earlier prices remain in history.</p>
           </div>
           <button id="product-prices-close" type="button" class="btn btn-outline">Close History</button>
+        </div>
+        <div class="product-current-price-card" role="status" aria-live="polite">
+          <span class="product-current-price-label">Current Price (as of today)</span>
+          <strong id="product-current-price">Not set</strong>
+          <span id="product-current-effdate" class="muted">No active price effective yet</span>
         </div>
         <div class="product-price-toolbar">
           <span id="product-price-count" class="product-count">0 prices</span>
@@ -299,7 +305,7 @@
     count.textContent = `${products.length} ${viewingDeleted ? 'deleted ' : ''}${products.length === 1 ? 'product' : 'products'}`;
 
     if (products.length === 0) {
-      body.innerHTML = '<tr><td colspan="4" class="empty-state">No matching product records found.</td></tr>';
+      body.innerHTML = '<tr><td colspan="5" class="empty-state">No matching product records found.</td></tr>';
       return;
     }
 
@@ -328,6 +334,7 @@
           <td class="product-code">${escapeProductHtml(product.prodcode)}</td>
           <td>${escapeProductHtml(product.description || '—')}</td>
           <td><span class="product-unit-badge">${escapeProductHtml(label)}</span></td>
+          <td data-product-price-index="${index}" class="product-price-number">${renderCurrentPriceCell(product)}</td>
           <td><div class="product-row-actions">${actions.join(' ') || '—'}</div></td>
         </tr>
       `;
@@ -351,7 +358,7 @@
     if (status === 'deleted') params.set('status', 'deleted');
 
     const requestId = ++requestSequence;
-    body.innerHTML = '<tr><td colspan="4" class="empty-state">Loading product records...</td></tr>';
+    body.innerHTML = '<tr><td colspan="5" class="empty-state">Loading product records...</td></tr>';
     button.disabled = true;
     button.textContent = 'Searching...';
     showProductMessage('');
@@ -370,7 +377,7 @@
     } catch (error) {
       if (requestId !== requestSequence) return false;
 
-      body.innerHTML = '<tr><td colspan="4" class="empty-state">Unable to retrieve product records.</td></tr>';
+      body.innerHTML = '<tr><td colspan="5" class="empty-state">Unable to retrieve product records.</td></tr>';
       document.getElementById('product-count').textContent = '0 products';
       if (error.status === 403) {
         showProductMessage('Access denied. You do not have permission to view Product records.', 'error');
@@ -503,6 +510,52 @@
     return String(value ?? '').slice(0, 10);
   }
 
+  // No price if the product is deleted or no active price has taken effect.
+  function renderCurrentPriceCell(product) {
+    if (product.is_deleted || product.current_price == null) {
+      return '<span class="muted">Not set</span>';
+    }
+    const effdate = priceDate(product.current_price_effdate);
+    const note = effdate ? `<small class="product-price-effective">Since ${escapeProductHtml(effdate)}</small>` : '';
+    return `<strong>${escapeProductHtml(formatPrice(product.current_price))}</strong>${note}`;
+  }
+
+  function updateCurrentPricePanel(product) {
+    const current = document.getElementById('product-current-price');
+    const date = document.getElementById('product-current-effdate');
+    if (!current || !date) return;
+    const hasPrice = product && product.current_price != null;
+    current.textContent = hasPrice ? formatPrice(product.current_price) : 'Not set';
+    date.textContent = hasPrice && product.current_price_effdate
+      ? `Effective ${priceDate(product.current_price_effdate)}`
+      : 'No active price effective yet';
+  }
+
+  // Refresh only the price cell and selected history card. Do not close the
+  // history panel or clear search filters after a price is changed.
+  async function refreshCurrentPriceForProduct(code) {
+    if (!code || !getProductRights().can_view) return;
+    try {
+      const data = await apiRequest(`/api/products/${encodeURIComponent(code)}/current-price`);
+      if (!data.product || data.product.prodcode !== code) return;
+      const index = productRows.findIndex((product) => product.prodcode === code);
+      if (index !== -1) {
+        Object.assign(productRows[index], {
+          current_price: data.product.current_price,
+          current_price_effdate: data.product.current_price_effdate,
+        });
+        const cell = document.querySelector(`[data-product-price-index="${index}"]`);
+        if (cell) cell.innerHTML = renderCurrentPriceCell(productRows[index]);
+      }
+      if (priceProductCode === code) updateCurrentPricePanel(data.product);
+    } catch (error) {
+      if (priceProductCode === code) {
+        const label = document.getElementById('product-current-effdate');
+        if (label) label.textContent = 'Current price could not be refreshed.';
+      }
+    }
+  }
+
   function formatPrice(value) {
     const amount = Number(value);
     return Number.isFinite(amount)
@@ -536,6 +589,7 @@
     priceRows = [];
     closePriceEditor();
     document.getElementById('product-prices-panel')?.classList.add('hidden');
+    updateCurrentPricePanel(null);
     updatePriceActions();
   }
 
@@ -549,8 +603,11 @@
     document.getElementById('product-prices-title').textContent =
       `Price History — ${priceProductCode}${priceProductName ? `: ${priceProductName}` : ''}`;
     document.getElementById('product-prices-panel').classList.remove('hidden');
+    const listed = productRows.find((row) => row.prodcode === priceProductCode);
+    updateCurrentPricePanel(listed || null);
     updatePriceActions();
     loadProductPrices();
+    refreshCurrentPriceForProduct(priceProductCode);
     document.getElementById('product-prices-panel').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
@@ -660,6 +717,7 @@
       if (priceProductCode === code && await loadProductPrices()) {
         showPriceMessage(editing ? 'Price updated successfully.' : 'Price added successfully.', 'success');
       }
+      await refreshCurrentPriceForProduct(code);
     } catch (error) {
       showPriceMessage(error.status === 403
         ? 'Access denied: insufficient Product permissions.'
@@ -691,6 +749,7 @@
           ? 'Price deleted. You can restore it under Deleted prices.'
           : 'Price restored successfully.', 'success');
       }
+      await refreshCurrentPriceForProduct(code);
     } catch (error) {
       showPriceMessage(error.status === 403
         ? 'Access denied: Product delete permission required.'

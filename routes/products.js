@@ -94,17 +94,32 @@ router.get('/', requireAuth, requireView, requireListStatusPermission, async (re
       ? 'is_deleted = TRUE'
       : 'is_deleted = FALSE';
 
+    // As-of-today price: latest active effective date not in the future.
+    // LATERAL fetches at most one price for each product. PostgreSQL's date
+    // is interpreted in the same Asia/Manila timezone used by HopeDB audits.
     const result = await pool.query(
-      `SELECT prodcode, description, unit, is_deleted, deleted_at, deleted_by
-       FROM product
+      `SELECT p.prodcode, p.description, p.unit, p.is_deleted, p.deleted_at, p.deleted_by,
+              current_price.unitprice AS current_price,
+              TO_CHAR(current_price.effdate, 'YYYY-MM-DD') AS current_price_effdate
+       FROM product p
+       LEFT JOIN LATERAL (
+         SELECT ph.unitprice, ph.effdate
+         FROM pricehist ph
+         WHERE ph.prodcode = p.prodcode
+           AND ph.is_deleted = FALSE
+           AND ph.effdate <= (NOW() AT TIME ZONE 'Asia/Manila')::date
+           AND p.is_deleted = FALSE
+         ORDER BY ph.effdate DESC
+         LIMIT 1
+       ) current_price ON TRUE
        WHERE ${deletionPredicate}
          AND (
            $1 = ''
-           OR prodcode ILIKE '%' || $1 || '%'
-           OR COALESCE(description, '') ILIKE '%' || $1 || '%'
+           OR p.prodcode ILIKE '%' || $1 || '%'
+           OR COALESCE(p.description, '') ILIKE '%' || $1 || '%'
          )
-         AND ($2 = '' OR unit = $2)
-       ORDER BY prodcode ASC`,
+         AND ($2 = '' OR p.unit = $2)
+       ORDER BY p.prodcode ASC`,
       [normalizedSearch, normalizedUnit]
     );
 
@@ -113,6 +128,40 @@ router.get('/', requireAuth, requireView, requireListStatusPermission, async (re
     return next(err);
   }
 });
+
+
+// S2-DEV-08: fetch the current effective price for one active product.
+// This route is read-only and requires Product can_view independently of
+// Customer permissions and all Product write permissions.
+router.get('/:prodcode/current-price', requireAuth, requireView, validateProductCode,
+  async (req, res, next) => {
+    try {
+      const result = await pool.query(
+        `SELECT p.prodcode,
+                current_price.unitprice AS current_price,
+                TO_CHAR(current_price.effdate, 'YYYY-MM-DD') AS current_price_effdate
+         FROM product p
+         LEFT JOIN LATERAL (
+           SELECT ph.unitprice, ph.effdate
+           FROM pricehist ph
+           WHERE ph.prodcode = p.prodcode
+             AND ph.is_deleted = FALSE
+             AND ph.effdate <= (NOW() AT TIME ZONE 'Asia/Manila')::date
+           ORDER BY ph.effdate DESC
+           LIMIT 1
+         ) current_price ON TRUE
+         WHERE p.prodcode = $1 AND p.is_deleted = FALSE`,
+        [req.productCode]
+      );
+      if (!result.rows.length) {
+        return res.status(404).json({ error: 'Active product not found.' });
+      }
+      return res.json({ product: result.rows[0] });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
 
 // Product codes remain reserved when soft-deleted; restore existing rows.
 router.post('/', requireAuth, requireCreate, async (req, res, next) => {
