@@ -1,0 +1,76 @@
+/* S2-DEV-04: Product list/search/filter workspace */
+.product-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.product-count {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.product-filters {
+  display: flex;
+  align-items: end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+.product-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  color: var(--text);
+}
+
+.product-filters input,
+.product-filters select {
+  width: 100%;
+  padding: .65rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.product-search-field {
+  flex: 2;
+  min-width: 210px;
+}
+
+.product-unit-field {
+  flex: 1;
+  min-width: 170px;
+}
+
+.product-filter-actions {
+  display: flex;
+  gap: .6rem;
+  flex-wrap: wrap;
+}
+
+.product-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.product-table th,
+.product-table td {
+  padding: .8rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.product-table th { color: var(--muted); }
+.product-code { font-weight: 700; }
+
+.product-unit-badge {
+  display: inline-block;
+  padding: .2rem .55rem;
+  border-radius: 12px;
+  background: var(--surface-light);
+}
