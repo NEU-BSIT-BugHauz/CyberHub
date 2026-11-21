@@ -117,3 +117,21 @@
   gap: .6rem;
   flex-wrap: wrap;
 }
+
+/* S2-DEV-06: Active/deleted filter and soft-delete/restore actions */
+.product-status-field {
+  flex: 1;
+  min-width: 170px;
+}
+
+.product-row-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.product-delete-button {
+  color: var(--danger);
+  border-color: var(--danger);
+}

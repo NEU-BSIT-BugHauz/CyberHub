@@ -7,6 +7,7 @@
   let productRows = [];
   let editingCode = null;
   let saving = false;
+  let changingStatus = false;
 
   const UNIT_LABELS = Object.freeze({
     pc: 'Piece (pc)',
@@ -54,7 +55,7 @@
       <div class="panel-heading product-heading">
         <div>
           <h3>Product Records</h3>
-          <p class="muted">Search, create, and edit active products.</p>
+          <p class="muted">Search, manage, and restore products.</p>
         </div>
         <span id="product-count" class="product-count">0 products</span>
         <button id="product-add" type="button" class="btn btn-primary hidden">Add Product</button>
@@ -75,6 +76,13 @@
             <option value="mtr">Meter (mtr)</option>
             <option value="pkg">Package (pkg)</option>
             <option value="ltr">Liter (ltr)</option>
+          </select>
+        </div>
+        <div id="product-status-field" class="product-status-field hidden">
+          <label for="product-status">Record status</label>
+          <select id="product-status">
+            <option value="active">Active products</option>
+            <option value="deleted">Deleted products</option>
           </select>
         </div>
         <div class="product-filter-actions">
@@ -138,6 +146,14 @@
     document.getElementById('product-reset-button').addEventListener('click', () => {
       document.getElementById('product-search').value = '';
       document.getElementById('product-unit').value = '';
+      document.getElementById('product-status').value = 'active';
+      updateProductActions();
+      loadProducts();
+    });
+
+    document.getElementById('product-status').addEventListener('change', () => {
+      if (!saving) closeProductEditor();
+      updateProductActions();
       loadProducts();
     });
 
@@ -145,22 +161,52 @@
     document.getElementById('product-cancel').addEventListener('click', closeProductEditor);
     document.getElementById('product-editor').addEventListener('submit', saveProduct);
     document.getElementById('product-table-body').addEventListener('click', (event) => {
-      const button = event.target.closest('[data-edit-product-index]');
-      if (!button || !getProductRights().can_edit) return;
-      const index = Number(button.dataset.editProductIndex);
-      if (Number.isInteger(index) && productRows[index]) {
-        openProductEditor(productRows[index]);
+      const button = event.target.closest('[data-product-action]');
+      if (!button || saving || changingStatus) return;
+      const index = Number(button.dataset.productIndex);
+      if (!Number.isInteger(index) || !productRows[index]) return;
+
+      const product = productRows[index];
+      const action = button.dataset.productAction;
+      const rights = getProductRights();
+      if (action === 'edit' && rights.can_edit && !product.is_deleted) {
+        openProductEditor(product);
+      } else if (action === 'delete' && rights.can_delete && !product.is_deleted) {
+        changeProductStatus(product, 'delete', button);
+      } else if (action === 'restore' && rights.can_delete && product.is_deleted) {
+        changeProductStatus(product, 'restore', button);
       }
     });
 
     initialized = true;
   }
 
+  function updateProductActions() {
+    if (!initialized) return;
+    const moduleView = document.getElementById('module-view');
+    const isProductModule = !moduleView.classList.contains('hidden') &&
+      document.getElementById('module-title').textContent.trim() === 'Product';
+    const rights = getProductRights();
+    const status = document.getElementById('product-status');
+    const statusField = document.getElementById('product-status-field');
+
+    statusField.classList.toggle('hidden', !isProductModule || !rights.can_delete);
+    if (!rights.can_delete) status.value = 'active';
+
+    const viewingDeleted = rights.can_delete && status.value === 'deleted';
+    document.getElementById('product-add').classList.toggle(
+      'hidden', !isProductModule || !rights.can_create || viewingDeleted
+    );
+  }
+
   function renderProducts(products) {
     const body = document.getElementById('product-table-body');
     const count = document.getElementById('product-count');
+    const rights = getProductRights();
+    const viewingDeleted = rights.can_delete &&
+      document.getElementById('product-status').value === 'deleted';
     productRows = products;
-    count.textContent = `${products.length} ${products.length === 1 ? 'product' : 'products'}`;
+    count.textContent = `${products.length} ${viewingDeleted ? 'deleted ' : ''}${products.length === 1 ? 'product' : 'products'}`;
 
     if (products.length === 0) {
       body.innerHTML = '<tr><td colspan="4" class="empty-state">No matching product records found.</td></tr>';
@@ -169,15 +215,27 @@
 
     body.innerHTML = products.map((product, index) => {
       const label = UNIT_LABELS[product.unit] || product.unit || '—';
-      const editButton = getProductRights().can_edit
-        ? `<button type="button" class="btn btn-outline" data-edit-product-index="${index}">Edit</button>`
-        : '—';
+      const actions = [];
+
+      if (viewingDeleted) {
+        if (rights.can_delete && product.is_deleted) {
+          actions.push(`<button type="button" class="btn btn-outline" data-product-action="restore" data-product-index="${index}">Restore</button>`);
+        }
+      } else if (!product.is_deleted) {
+        if (rights.can_edit) {
+          actions.push(`<button type="button" class="btn btn-outline" data-product-action="edit" data-product-index="${index}">Edit</button>`);
+        }
+        if (rights.can_delete) {
+          actions.push(`<button type="button" class="btn btn-outline product-delete-button" data-product-action="delete" data-product-index="${index}">Delete</button>`);
+        }
+      }
+
       return `
         <tr>
           <td class="product-code">${escapeProductHtml(product.prodcode)}</td>
           <td>${escapeProductHtml(product.description || '—')}</td>
           <td><span class="product-unit-badge">${escapeProductHtml(label)}</span></td>
-          <td>${editButton}</td>
+          <td><div class="product-row-actions">${actions.join(' ') || '—'}</div></td>
         </tr>
       `;
     }).join('');
@@ -190,10 +248,13 @@
     const button = document.getElementById('product-search-button');
     const search = document.getElementById('product-search').value.trim();
     const unit = document.getElementById('product-unit').value;
+    const rights = getProductRights();
+    const status = rights.can_delete ? document.getElementById('product-status').value : 'active';
     const params = new URLSearchParams();
 
     if (search) params.set('search', search);
     if (unit) params.set('unit', unit);
+    if (status === 'deleted') params.set('status', 'deleted');
 
     const requestId = ++requestSequence;
     body.innerHTML = '<tr><td colspan="4" class="empty-state">Loading product records...</td></tr>';
@@ -235,7 +296,7 @@
 
   function openProductEditor(product = null) {
     const rights = getProductRights();
-    if (saving || (product ? !rights.can_edit : !rights.can_create)) return;
+    if (saving || changingStatus || (product ? (!rights.can_edit || product.is_deleted) : !rights.can_create)) return;
 
     editingCode = product ? product.prodcode : null;
     document.getElementById('product-editor-title').textContent = product ? 'Edit Product' : 'Add Product';
@@ -261,7 +322,7 @@
 
     const editing = editingCode !== null;
     const rights = getProductRights();
-    if (editing ? !rights.can_edit : !rights.can_create) return;
+    if (changingStatus || (editing ? !rights.can_edit : !rights.can_create)) return;
 
     const button = document.getElementById('product-save');
     const payload = {
@@ -297,6 +358,45 @@
     }
   }
 
+  async function changeProductStatus(product, action, button) {
+    if (saving || changingStatus || !getProductRights().can_delete) return;
+
+    const deleting = action === 'delete';
+    if (deleting && !window.confirm(
+      `Soft-delete product ${product.prodcode} (${product.description || 'No description'})? You can restore it later.`
+    )) {
+      return;
+    }
+
+    changingStatus = true;
+    button.disabled = true;
+    try {
+      const endpoint = `/api/products/${encodeURIComponent(product.prodcode)}`;
+      await apiRequest(deleting ? endpoint : `${endpoint}/restore`, {
+        method: deleting ? 'DELETE' : 'PATCH',
+      });
+      if (!saving) closeProductEditor();
+      if (await loadProducts()) {
+        showProductMessage(
+          deleting
+            ? 'Product deleted successfully. You can restore it from Deleted products.'
+            : 'Product restored successfully.',
+          'success'
+        );
+      }
+    } catch (error) {
+      showProductMessage(
+        error.status === 403
+          ? 'Access denied: Product delete permission required.'
+          : (error.message || 'Unable to change product status.'),
+        'error'
+      );
+    } finally {
+      changingStatus = false;
+      button.disabled = false;
+    }
+  }
+
   function updateProductWorkspace() {
     const moduleView = document.getElementById('module-view');
     const title = document.getElementById('module-title');
@@ -317,7 +417,7 @@
     placeholder?.classList.toggle('hidden', isProductModule);
     placeholderHeading?.classList.toggle('hidden', isProductModule);
 
-    document.getElementById('product-add').classList.toggle('hidden', !isProductModule || !getProductRights().can_create);
+    updateProductActions();
 
     if (isProductModule && !wasVisible) loadProducts();
     if (!isProductModule && wasVisible) {
