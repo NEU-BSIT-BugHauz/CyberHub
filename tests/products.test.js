@@ -621,3 +621,284 @@ describe('S2-DEV-06: Product Soft Delete and Restore', () => {
     expect(response.body.error).toMatch(/restore the deleted product/i);
   });
 });
+
+// S2-DEV-07: Product Price History (effective dates + soft-delete audit).
+describe('S2-DEV-07: Product Price History', () => {
+  const code = 'AD0001';
+  const date = '2026-11-21';
+  const base = `/api/products/${code}/prices`;
+  const price = {
+    prodcode: code,
+    effdate: date,
+    unitprice: '125.50',
+    is_deleted: false,
+    deleted_at: null,
+    deleted_by: null,
+  };
+
+  beforeEach(() => jest.resetAllMocks());
+
+  function actor(permission = 'can_view', overrides = {}) {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({
+      rows: [{
+        module_name: 'Product',
+        can_view: permission === 'can_view',
+        can_create: permission === 'can_create',
+        can_edit: permission === 'can_edit',
+        can_delete: permission === 'can_delete',
+        ...overrides,
+      }],
+    });
+  }
+
+  test('rejects unauthenticated history requests', async () => {
+    const r = await request(app).get(base);
+    expect(r.status).toBe(401);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  test('requires Product can_view to list prices', async () => {
+    actor('can_create');
+    const r = await request(app).get(base).set('x-user-id', '1');
+    expect(r.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('returns active prices newest first for active products', async () => {
+    actor('can_view');
+    pool.query.mockResolvedValueOnce({ rows: [{ prodcode: code }] });
+    pool.query.mockResolvedValueOnce({ rows: [price] });
+    const r = await request(app).get(base).set('x-user-id', '1');
+    expect(r.status).toBe(200);
+    expect(r.body.prices).toEqual([price]);
+    expect(pool.query.mock.calls[2][0]).toMatch(/is_deleted = FALSE/);
+    expect(pool.query.mock.calls[3][0]).toContain('ORDER BY effdate DESC');
+    expect(pool.query.mock.calls[3][0]).toContain('is_deleted = FALSE');
+    expect(pool.query.mock.calls[3][1]).toEqual([code]);
+  });
+
+  test('denies deleted price history without delete permission', async () => {
+    actor('can_view', { can_delete: false });
+    pool.query.mockResolvedValueOnce({
+      rows: [{ module_name: 'Product', can_view: true, can_delete: false }],
+    });
+    const r = await request(app).get(`${base}?status=deleted`).set('x-user-id', '1');
+    expect(r.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(3);
+  });
+
+  test('deleted history requires both view and delete permissions', async () => {
+    actor('can_delete');
+    const r = await request(app).get(`${base}?status=deleted`).set('x-user-id', '1');
+    expect(r.status).toBe(403);
+  });
+
+  test('lists deleted history for users with both permissions', async () => {
+    actor('can_view', { can_delete: true });
+    pool.query.mockResolvedValueOnce({ rows: [{ module_name: 'Product', can_view: true, can_delete: true }] });
+    pool.query.mockResolvedValueOnce({ rows: [{ prodcode: code }] });
+    pool.query.mockResolvedValueOnce({ rows: [{ ...price, is_deleted: true }] });
+    const r = await request(app).get(`${base}?status=%20DELETED%20`).set('x-user-id', '1');
+    expect(r.status).toBe(200);
+    expect(r.body.prices[0].is_deleted).toBe(true);
+    expect(pool.query.mock.calls[4][0]).toContain('is_deleted = TRUE');
+  });
+
+  test('allows superadmin history without permission queries', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] });
+    pool.query.mockResolvedValueOnce({ rows: [{ prodcode: code }] });
+    pool.query.mockResolvedValueOnce({ rows: [price] });
+    const r = await request(app).get(base).set('x-user-id', '1');
+    expect(r.status).toBe(200);
+    expect(pool.query).toHaveBeenCalledTimes(3);
+  });
+
+  test.each(['?status=all', '?status=', '?status=active&status=deleted'])('rejects invalid list status %s', async (query) => {
+    actor('can_view');
+    const r = await request(app).get(`${base}${query}`).set('x-user-id', '1');
+    expect(r.status).toBe(400);
+  });
+
+  test('returns 404 for a missing or deleted parent product', async () => {
+    actor('can_view');
+    pool.query.mockResolvedValueOnce({ rows: [] });
+    const r = await request(app).get(base).set('x-user-id', '1');
+    expect(r.status).toBe(404);
+    expect(pool.query).toHaveBeenCalledTimes(3);
+  });
+
+  test('adds a price with validated effective date and decimal amount', async () => {
+    actor('can_create');
+    pool.query.mockResolvedValueOnce({ rows: [price] });
+    const r = await request(app).post(base).set('x-user-id', '1')
+      .send({ effdate: date, unitprice: '125.50' });
+    expect(r.status).toBe(201);
+    expect(r.body.price.effdate).toBe(date);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('INSERT INTO pricehist'), [code, date, '125.50']
+    );
+    expect(pool.query.mock.calls[2][0]).toContain('is_deleted = FALSE');
+  });
+
+  test.each(['2026-02-30', '2026-13-01', '21-11-2026', '2026-11-00', ''])
+    ('rejects invalid effective date %s before SQL', async (badDate) => {
+      actor('can_create');
+      const r = await request(app).post(base).set('x-user-id', '1')
+        .send({ effdate: badDate, unitprice: '1.00' });
+      expect(r.status).toBe(400);
+      expect(pool.query).toHaveBeenCalledTimes(2);
+    });
+
+  test.each([0, -2, '0', '0.001', '12.345', 100000000, '1e3', null, {}, ''])
+    ('rejects invalid decimal price %s', async (badPrice) => {
+      actor('can_create');
+      const r = await request(app).post(base).set('x-user-id', '1')
+        .send({ effdate: date, unitprice: badPrice });
+      expect(r.status).toBe(400);
+      expect(pool.query).toHaveBeenCalledTimes(2);
+    });
+
+  test('denies price creation without can_create', async () => {
+    actor('can_view');
+    const r = await request(app).post(base).set('x-user-id', '1')
+      .send({ effdate: date, unitprice: '1.00' });
+    expect(r.status).toBe(403);
+  });
+
+  test('returns 404 when trying to add a price to a deleted product', async () => {
+    actor('can_create');
+    pool.query.mockResolvedValueOnce({ rows: [] });
+    const r = await request(app).post(base).set('x-user-id', '1')
+      .send({ effdate: date, unitprice: '1.00' });
+    expect(r.status).toBe(404);
+  });
+
+  test('returns 409 when the product-date combination already exists', async () => {
+    actor('can_create');
+    const err = new Error('duplicate');
+    err.code = '23505';
+    pool.query.mockRejectedValueOnce(err);
+    const r = await request(app).post(base).set('x-user-id', '1')
+      .send({ effdate: date, unitprice: '1.00' });
+    expect(r.status).toBe(409);
+    expect(r.body.error).toMatch(/restore/i);
+  });
+
+  test('edits an active historical price without changing its effective date', async () => {
+    actor('can_edit');
+    pool.query.mockResolvedValueOnce({ rows: [{ ...price, unitprice: '130.00' }] });
+    const r = await request(app).put(`${base}/${date}`).set('x-user-id', '1')
+      .send({ unitprice: '130.00' });
+    expect(r.status).toBe(200);
+    expect(r.body.price.unitprice).toBe('130.00');
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('UPDATE pricehist SET unitprice'), [code, date, '130.00']
+    );
+    expect(pool.query.mock.calls[2][0]).toContain('EXISTS (SELECT 1 FROM product');
+  });
+
+  test('denies price editing without can_edit', async () => {
+    actor('can_view');
+    const r = await request(app).put(`${base}/${date}`).set('x-user-id', '1')
+      .send({ unitprice: '130.00' });
+    expect(r.status).toBe(403);
+  });
+
+  test('refuses effective-date edits instead of silently moving a historical key', async () => {
+    actor('can_edit');
+    const r = await request(app).put(`${base}/${date}`).set('x-user-id', '1')
+      .send({ effdate: '2026-11-22', unitprice: '130.00' });
+    expect(r.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('refuses changing the product code of a price', async () => {
+    actor('can_edit');
+    const r = await request(app).put(`${base}/${date}`).set('x-user-id', '1')
+      .send({ prodcode: 'AK0001', unitprice: '130.00' });
+    expect(r.status).toBe(400);
+  });
+
+  test('returns 404 when editing a deleted or missing historical price', async () => {
+    actor('can_edit');
+    pool.query.mockResolvedValueOnce({ rows: [] });
+    const r = await request(app).put(`${base}/${date}`).set('x-user-id', '1')
+      .send({ unitprice: '130.00' });
+    expect(r.status).toBe(404);
+  });
+
+  test('soft-deletes a historical price and records the user, without hard DELETE', async () => {
+    actor('can_delete');
+    pool.query.mockResolvedValueOnce({ rows: [{ ...price, is_deleted: true, deleted_by: 1 }] });
+    const r = await request(app).delete(`${base}/${date}`).set('x-user-id', '1');
+    expect(r.status).toBe(200);
+    expect(r.body.price.is_deleted).toBe(true);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('SET is_deleted = TRUE'), [code, date, 1]
+    );
+    expect(pool.query.mock.calls[2][0]).not.toMatch(/^DELETE\s/i);
+  });
+
+  test('denies price deletion without can_delete', async () => {
+    actor('can_edit');
+    const r = await request(app).delete(`${base}/${date}`).set('x-user-id', '1');
+    expect(r.status).toBe(403);
+  });
+
+  test('returns 404 when repeatedly deleting an already deleted price', async () => {
+    actor('can_delete');
+    pool.query.mockResolvedValueOnce({ rows: [] });
+    const r = await request(app).delete(`${base}/${date}`).set('x-user-id', '1');
+    expect(r.status).toBe(404);
+  });
+
+  test('restores the same historical date with a non-destructive update', async () => {
+    actor('can_delete');
+    pool.query.mockResolvedValueOnce({ rows: [{ ...price, is_deleted: false }] });
+    const r = await request(app).patch(`${base}/${date}/restore`).set('x-user-id', '1');
+    expect(r.status).toBe(200);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('SET is_deleted = FALSE'), [code, date]
+    );
+  });
+
+  test('denies restoration without can_delete', async () => {
+    actor('can_view');
+    const r = await request(app).patch(`${base}/${date}/restore`).set('x-user-id', '1');
+    expect(r.status).toBe(403);
+  });
+
+  test('returns 404 when restoring an active or missing price', async () => {
+    actor('can_delete');
+    pool.query.mockResolvedValueOnce({ rows: [] });
+    const r = await request(app).patch(`${base}/${date}/restore`).set('x-user-id', '1');
+    expect(r.status).toBe(404);
+  });
+
+  test('rejects malformed effective-date URL without updating SQL', async () => {
+    actor('can_delete');
+    const r = await request(app).delete(`${base}/2026-02-30`).set('x-user-id', '1');
+    expect(r.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('rejects unauthenticated mutation of prices', async () => {
+    const r = await request(app).delete(`${base}/${date}`);
+    expect(r.status).toBe(401);
+  });
+
+  test('rejects invalid product codes on price routes', async () => {
+    actor('can_view');
+    const r = await request(app).get('/api/products/TOO-LONG/prices').set('x-user-id', '1');
+    expect(r.status).toBe(400);
+  });
+
+  test('forwards unexpected price history query errors', async () => {
+    actor('can_view');
+    pool.query.mockRejectedValueOnce(new Error('Database unavailable'));
+    const r = await request(app).get(base).set('x-user-id', '1');
+    expect(r.status).toBe(500);
+    expect(r.body.error).toMatch(/Database unavailable/i);
+  });
+});
