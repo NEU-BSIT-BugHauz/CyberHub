@@ -45,6 +45,7 @@ app.use(
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// HEALTH CHECK
 app.get('/api/health', async (_req, res) => {
   let database = 'not configured';
 
@@ -68,19 +69,23 @@ app.get('/api/health', async (_req, res) => {
   });
 });
 
-// Authentication routes
+// AUTHENTICATION ROUTES
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
-// Password reset routes
+// PASSWORD RESET ROUTES
 const passwordResetRoutes = require('./routes/passwordReset');
 app.use('/api/auth', passwordResetRoutes);
 
-// User management routes
+// USER MANAGEMENT ROUTES
 const usersRoutes = require('./routes/users');
 app.use('/api/users', usersRoutes);
 
-// Global error handler
+// PERMISSION MANAGEMENT ROUTES
+const permissionsRoutes = require('./routes/permissions');
+app.use('/api/permissions', permissionsRoutes);
+
+// GLOBAL ERROR HANDLER
 app.use((err, _req, res, _next) => {
   console.error(err);
 

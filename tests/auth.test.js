@@ -55,6 +55,13 @@ function createActiveUser(overrides = {}) {
   };
 }
 
+// Empty permission query result means all modules default to no access.
+function emptyPermissionsResult() {
+  return {
+    rows: [],
+  };
+}
+
 describe('CyberHub authentication API', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -252,11 +259,14 @@ describe('CyberHub authentication API', () => {
             }),
           ],
         })
+        // Current account lookup performed by requireAuth.
         .mockResolvedValueOnce({
           rows: [
             createActiveUser(),
           ],
-        });
+        })
+        // Permission lookup performed by GET /me.
+        .mockResolvedValueOnce(emptyPermissionsResult());
 
       const agent = request.agent(app);
 
@@ -275,6 +285,17 @@ describe('CyberHub authentication API', () => {
       expect(meResponse.status).toBe(200);
       expect(meResponse.body.user.email).toBe('john@example.com');
       expect(meResponse.body.user.empno).toBe('E1234');
+      expect(meResponse.body.permissions).toHaveLength(5);
+
+      expect(
+        meResponse.body.permissions.every(
+          (permission) =>
+            permission.can_view === false &&
+            permission.can_create === false &&
+            permission.can_edit === false &&
+            permission.can_delete === false
+        )
+      ).toBe(true);
     });
 
     test('rejects blocked accounts', async () => {
@@ -415,7 +436,9 @@ describe('CyberHub authentication API', () => {
               role: 'admin',
             }),
           ],
-        });
+        })
+        // Permissions for the updated current role.
+        .mockResolvedValueOnce(emptyPermissionsResult());
 
       const agent = request.agent(app);
 
@@ -433,6 +456,7 @@ describe('CyberHub authentication API', () => {
       expect(meResponse.status).toBe(200);
       expect(meResponse.body.user.email).toBe('updated@example.com');
       expect(meResponse.body.user.role).toBe('admin');
+      expect(meResponse.body.permissions).toHaveLength(5);
     });
 
     test('rejects non-admin access to pending accounts', async () => {

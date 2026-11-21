@@ -17,10 +17,51 @@ const usersTableBody = document.getElementById('users-table-body');
 const userSearch = document.getElementById('user-search');
 const userCount = document.getElementById('user-count');
 
+const MODULES = [
+  'Customer',
+  'Product',
+  'Human Resources',
+  'Sales',
+  'Reports',
+];
+
+const ACTIONS = [
+  'can_view',
+  'can_create',
+  'can_edit',
+  'can_delete',
+];
+
+const ACTION_LABELS = {
+  can_view: 'View',
+  can_create: 'Create',
+  can_edit: 'Edit',
+  can_delete: 'Delete',
+};
+
+const MODULE_DESCRIPTIONS = {
+  Customer: 'Manage and review customer-related information.',
+  Product: 'Access product information and related operations.',
+  'Human Resources': 'Access employee and human resources information.',
+  Sales: 'Access sales-related information and operations.',
+  Reports: 'Access reporting and business insights.',
+};
+
+const CONTENT_VIEWS = {
+  overview: 'overview-view',
+  module: 'module-view',
+  'user-management': 'user-management-view',
+  permissions: 'permissions-view',
+  superadmin: 'superadmin-view',
+};
+
 const resetToken = new URLSearchParams(window.location.search).get('token');
 
 let currentUser = null;
 let users = [];
+let permissions = [];
+let selectedModule = null;
+let currentPermissionTarget = null;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -33,9 +74,96 @@ function escapeHtml(value) {
 }
 
 function showMessage(element, message, type = '') {
+  if (!element) return;
+
   element.textContent = message;
   element.className = `message ${type}`.trim();
 }
+
+function formatRole(role) {
+  const value = String(role || '');
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function isAuthenticated() {
+  return Boolean(currentUser && currentUser.user_id);
+}
+
+function isAdmin() {
+  return ['admin', 'superadmin'].includes(currentUser?.role);
+}
+
+function isSuperadmin() {
+  return currentUser?.role === 'superadmin';
+}
+
+function createDefaultPermission(moduleName) {
+  return {
+    module_name: moduleName,
+    can_view: false,
+    can_create: false,
+    can_edit: false,
+    can_delete: false,
+  };
+}
+
+function normalizePermissions(data) {
+  const supplied = Array.isArray(data) ? data : [];
+
+  return MODULES.map((moduleName) => {
+    const existing = supplied.find(
+      (item) => item.module_name === moduleName
+    );
+
+    if (!existing) {
+      return createDefaultPermission(moduleName);
+    }
+
+    return {
+      module_name: moduleName,
+      can_view: existing.can_view === true,
+      can_create: existing.can_create === true,
+      can_edit: existing.can_edit === true,
+      can_delete: existing.can_delete === true,
+    };
+  });
+}
+
+function getModulePermission(moduleName) {
+  if (isSuperadmin()) {
+    return {
+      module_name: moduleName,
+      can_view: true,
+      can_create: true,
+      can_edit: true,
+      can_delete: true,
+    };
+  }
+
+  return permissions.find(
+    (item) => item.module_name === moduleName
+  ) || createDefaultPermission(moduleName);
+}
+
+function getAvailableModules() {
+  if (isSuperadmin()) {
+    return [...MODULES];
+  }
+
+  return MODULES.filter(
+    (moduleName) => getModulePermission(moduleName).can_view
+  );
+}
+
+function hasModuleAccess(moduleName) {
+  return MODULES.includes(moduleName) &&
+    getModulePermission(moduleName).can_view;
+}
+
+// ==========================================
+// MAIN VIEW NAVIGATION
+// ==========================================
 
 function hideAllViews() {
   loginView.classList.add('hidden');
@@ -68,6 +196,68 @@ function showResetPassword(message = '', type = '') {
   showMessage(resetMessage, message, type);
 }
 
+function setActiveNavigation(view, moduleName = '') {
+  document.querySelectorAll('.sidebar-nav [data-view]').forEach((button) => {
+    const isActive =
+      button.dataset.view === view &&
+      (view !== 'module' || button.dataset.module === moduleName);
+
+    button.classList.toggle('active', isActive);
+  });
+}
+
+function showContentView(view, moduleName = '') {
+  if (!isAuthenticated()) return;
+
+  if (!Object.prototype.hasOwnProperty.call(CONTENT_VIEWS, view)) {
+    return;
+  }
+
+  if (view === 'user-management' && !isAdmin()) {
+    showMessage(pageMessage, 'Administrator access required.', 'error');
+    return;
+  }
+
+  if (
+    (view === 'permissions' || view === 'superadmin') &&
+    !isSuperadmin()
+  ) {
+    showMessage(pageMessage, 'Superadmin access required.', 'error');
+    return;
+  }
+
+  if (view === 'module') {
+    if (!hasModuleAccess(moduleName)) {
+      showMessage(
+        pageMessage,
+        'You do not have access to this module.',
+        'error'
+      );
+      return;
+    }
+
+    selectedModule = moduleName;
+    renderModuleWorkspace(moduleName);
+  }
+
+  Object.values(CONTENT_VIEWS).forEach((id) => {
+    document.getElementById(id).classList.add('hidden');
+  });
+
+  document.getElementById(CONTENT_VIEWS[view]).classList.remove('hidden');
+
+  setActiveNavigation(view, moduleName);
+  showMessage(pageMessage, '');
+
+  if (view === 'user-management') {
+    loadUsers();
+  }
+
+  if (view === 'permissions') {
+    loadPermissionTargets();
+  }
+}
+
 function showDashboard() {
   hideAllViews();
   dashboardView.classList.remove('hidden');
@@ -76,28 +266,167 @@ function showDashboard() {
     currentUser.full_name || currentUser.email;
 
   document.getElementById('current-user-role').textContent =
-    currentUser.role;
-
-  const isSuperadmin = currentUser.role === 'superadmin';
+    formatRole(currentUser.role);
 
   document.getElementById('add-role-field').classList.toggle(
     'hidden',
-    !isSuperadmin
+    !isSuperadmin()
   );
 
   document.getElementById('edit-role-field').classList.toggle(
     'hidden',
-    !isSuperadmin
+    !isSuperadmin()
+  );
+
+  configureNavigation();
+  renderOverview();
+
+  showContentView('overview');
+}
+
+function configureNavigation() {
+  const availableModules = getAvailableModules();
+
+  document.querySelectorAll('.module-link').forEach((button) => {
+    const allowed = availableModules.includes(button.dataset.module);
+
+    button.classList.toggle('hidden', !allowed);
+    button.disabled = !allowed;
+  });
+
+  document.getElementById('user-management-nav').classList.toggle(
+    'hidden',
+    !isAdmin()
+  );
+
+  document.getElementById('permissions-nav').classList.toggle(
+    'hidden',
+    !isSuperadmin()
+  );
+
+  document.getElementById('superadmin-nav').classList.toggle(
+    'hidden',
+    !isSuperadmin()
   );
 }
 
-function formatRole(role) {
-  return String(role || '')
-    .charAt(0)
-    .toUpperCase() + String(role || '').slice(1);
+// ==========================================
+// DASHBOARD OVERVIEW
+// ==========================================
+
+function renderOverview() {
+  const availableModules = getAvailableModules();
+
+  document.getElementById('overview-user-name').textContent =
+    currentUser.full_name || currentUser.email;
+
+  document.getElementById('overview-user-role').textContent =
+    formatRole(currentUser.role);
+
+  document.getElementById('overview-role-card').textContent =
+    formatRole(currentUser.role);
+
+  document.getElementById('overview-module-count').textContent =
+    availableModules.length;
+
+  document.getElementById('overview-account-status').textContent =
+    formatRole(currentUser.status);
+
+  const container = document.getElementById('overview-module-list');
+
+  if (availableModules.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        No modules have been assigned to your account yet.
+        Contact your administrator for access.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = availableModules.map((moduleName) => {
+    const safeName = escapeHtml(moduleName);
+    const permission = getModulePermission(moduleName);
+
+    const actionLabels = ACTIONS
+      .filter((action) => permission[action])
+      .map((action) => ACTION_LABELS[action]);
+
+    return `
+      <button
+        type="button"
+        class="module-card"
+        data-open-module="${safeName}"
+      >
+        <span class="module-card-title">${safeName}</span>
+        <span class="module-card-description">
+          ${escapeHtml(MODULE_DESCRIPTIONS[moduleName])}
+        </span>
+        <span class="module-card-permissions">
+          ${actionLabels.length
+            ? escapeHtml(actionLabels.join(' · '))
+            : 'View access'}
+        </span>
+        <span class="module-card-action">Open workspace →</span>
+      </button>
+    `;
+  }).join('');
 }
 
+function renderModuleWorkspace(moduleName) {
+  const permission = getModulePermission(moduleName);
+
+  document.getElementById('module-title').textContent = moduleName;
+
+  document.getElementById('module-description').textContent =
+    MODULE_DESCRIPTIONS[moduleName] || 'Your assigned module workspace.';
+
+  document.getElementById('module-placeholder-title').textContent =
+    `${moduleName} Workspace`;
+
+  const summary = document.getElementById('module-permission-summary');
+
+  summary.innerHTML = ACTIONS.map((action) => {
+    const granted = permission[action];
+
+    return `
+      <div class="permission-summary-item">
+        <span>${ACTION_LABELS[action]}</span>
+        <strong class="${granted ? 'permission-granted' : 'permission-denied'}">
+          ${granted ? 'Allowed' : 'Not allowed'}
+        </strong>
+      </div>
+    `;
+  }).join('');
+}
+
+// ==========================================
+// SIDEBAR AND MODULE NAVIGATION
+// ==========================================
+
+document.querySelectorAll('.sidebar-nav [data-view]').forEach((button) => {
+  button.addEventListener('click', () => {
+    showContentView(
+      button.dataset.view,
+      button.dataset.module || ''
+    );
+  });
+});
+
+document.getElementById('overview-module-list').addEventListener(
+  'click',
+  (event) => {
+    const button = event.target.closest('[data-open-module]');
+
+    if (!button) return;
+
+    showContentView('module', button.dataset.openModule);
+  }
+);
+
+// ==========================================
 // PASSWORD RESET NAVIGATION
+// ==========================================
 
 document.getElementById('show-forgot-password').addEventListener(
   'click',
@@ -117,7 +446,9 @@ document.getElementById('reset-back-to-login').addEventListener(
   }
 );
 
+// ==========================================
 // FORGOT PASSWORD
+// ==========================================
 
 forgotPasswordForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -157,7 +488,9 @@ forgotPasswordForm.addEventListener('submit', async (event) => {
   }
 });
 
+// ==========================================
 // RESET PASSWORD
+// ==========================================
 
 resetPasswordForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -212,7 +545,6 @@ resetPasswordForm.addEventListener('submit', async (event) => {
 
     resetPasswordForm.reset();
 
-    // Remove the reset token from the browser address bar.
     window.history.replaceState(
       null,
       '',
@@ -231,7 +563,9 @@ resetPasswordForm.addEventListener('submit', async (event) => {
   }
 });
 
-// USER TABLE
+// ==========================================
+// USER MANAGEMENT TABLE
+// ==========================================
 
 function renderUsers() {
   const searchTerm = userSearch.value.trim().toLowerCase();
@@ -323,7 +657,15 @@ function renderUsers() {
   }).join('');
 }
 
+async function fetchManageableUsers() {
+  const data = await apiRequest('/api/users');
+
+  return Array.isArray(data.users) ? data.users : [];
+}
+
 async function loadUsers() {
+  if (!isAdmin()) return;
+
   usersTableBody.innerHTML = `
     <tr>
       <td colspan="6" class="empty-state">Loading accounts...</td>
@@ -331,8 +673,7 @@ async function loadUsers() {
   `;
 
   try {
-    const data = await apiRequest('/api/users');
-    users = Array.isArray(data.users) ? data.users : [];
+    users = await fetchManageableUsers();
     renderUsers();
   } catch (error) {
     usersTableBody.innerHTML = `
@@ -347,7 +688,22 @@ async function loadUsers() {
   }
 }
 
-// LOGIN
+// ==========================================
+// LOGIN AND SESSION RESTORATION
+// ==========================================
+
+async function loadCurrentAccount() {
+  const data = await apiRequest('/api/auth/me');
+
+  if (!data.user || !['user', 'admin', 'superadmin'].includes(data.user.role)) {
+    throw new Error('Your account does not have a valid portal role.');
+  }
+
+  currentUser = data.user;
+  permissions = normalizePermissions(data.permissions);
+
+  return data;
+}
 
 loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -366,28 +722,21 @@ loginForm.addEventListener('submit', async (event) => {
   showMessage(loginMessage, '');
 
   try {
-    const data = await apiRequest('/api/auth/login', {
+    await apiRequest('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
 
-    if (!['admin', 'superadmin'].includes(data.user?.role)) {
-      showMessage(
-        loginMessage,
-        'Administrator access is required to use this portal.',
-        'error'
-      );
-      return;
-    }
+    await loadCurrentAccount();
 
-    currentUser = data.user;
     loginForm.reset();
 
     showDashboard();
     showMessage(pageMessage, 'Welcome to CyberHub.', 'success');
-
-    await loadUsers();
   } catch (error) {
+    currentUser = null;
+    permissions = [];
+
     showMessage(loginMessage, error.message, 'error');
   } finally {
     submitButton.disabled = false;
@@ -395,11 +744,16 @@ loginForm.addEventListener('submit', async (event) => {
   }
 });
 
+// ==========================================
 // ADD USER PANEL
+// ==========================================
 
 document.getElementById('show-add-form').addEventListener('click', () => {
+  if (!isAdmin()) return;
+
   document.getElementById('add-panel').classList.remove('hidden');
   document.getElementById('edit-panel').classList.add('hidden');
+
   document.getElementById('add-empno').focus();
 });
 
@@ -409,12 +763,16 @@ document.querySelectorAll('[data-close]').forEach((button) => {
   });
 });
 
+// ==========================================
 // CREATE USER
+// ==========================================
 
 document.getElementById('add-user-form').addEventListener(
   'submit',
   async (event) => {
     event.preventDefault();
+
+    if (!isAdmin()) return;
 
     const form = event.currentTarget;
     const submitButton = form.querySelector('button[type="submit"]');
@@ -424,7 +782,7 @@ document.getElementById('add-user-form').addEventListener(
       email: document.getElementById('add-email').value.trim(),
     };
 
-    if (currentUser.role === 'superadmin') {
+    if (isSuperadmin()) {
       payload.role = document.getElementById('add-role').value;
     }
 
@@ -452,9 +810,13 @@ document.getElementById('add-user-form').addEventListener(
   }
 );
 
+// ==========================================
 // OPEN EDIT FORM
+// ==========================================
 
 function openEditForm(userId) {
+  if (!isAdmin()) return;
+
   const user = users.find(
     (item) => String(item.user_id) === String(userId)
   );
@@ -472,7 +834,7 @@ function openEditForm(userId) {
   document.getElementById('edit-empno').value = user.empno || '';
   document.getElementById('edit-email').value = user.email || '';
 
-  if (currentUser.role === 'superadmin') {
+  if (isSuperadmin()) {
     document.getElementById('edit-role').value = user.role;
   }
 
@@ -482,12 +844,16 @@ function openEditForm(userId) {
   });
 }
 
+// ==========================================
 // UPDATE USER
+// ==========================================
 
 document.getElementById('edit-user-form').addEventListener(
   'submit',
   async (event) => {
     event.preventDefault();
+
+    if (!isAdmin()) return;
 
     const submitButton = event.currentTarget.querySelector(
       'button[type="submit"]'
@@ -499,7 +865,7 @@ document.getElementById('edit-user-form').addEventListener(
       email: document.getElementById('edit-email').value.trim(),
     };
 
-    if (currentUser.role === 'superadmin') {
+    if (isSuperadmin()) {
       payload.role = document.getElementById('edit-role').value;
     }
 
@@ -529,9 +895,13 @@ document.getElementById('edit-user-form').addEventListener(
   }
 );
 
+// ==========================================
 // BLOCK / UNBLOCK USER
+// ==========================================
 
 async function updateUserStatus(userId, status) {
+  if (!isAdmin()) return;
+
   const action = status === 'blocked' ? 'block' : 'unblock';
 
   const confirmed = window.confirm(
@@ -557,9 +927,13 @@ async function updateUserStatus(userId, status) {
   }
 }
 
-// TABLE ACTIONS
+// ==========================================
+// USER TABLE ACTIONS
+// ==========================================
 
 usersTableBody.addEventListener('click', (event) => {
+  if (!isAdmin()) return;
+
   const button = event.target.closest('button[data-action]');
 
   if (!button) return;
@@ -575,11 +949,246 @@ usersTableBody.addEventListener('click', (event) => {
   }
 });
 
-// SEARCH
+// ==========================================
+// USER SEARCH
+// ==========================================
 
 userSearch.addEventListener('input', renderUsers);
 
+// ==========================================
+// RIGHTS AND PERMISSIONS
+// ==========================================
+
+function renderPermissionTargets() {
+  const select = document.getElementById('permission-user-select');
+
+  select.innerHTML = '<option value="">Select an account</option>';
+
+  users.forEach((user) => {
+    const option = document.createElement('option');
+
+    option.value = user.user_id;
+    option.textContent =
+      `${user.full_name || user.email} — ${formatRole(user.role)} (${user.email})`;
+
+    select.appendChild(option);
+  });
+}
+
+async function loadPermissionTargets() {
+  if (!isSuperadmin()) return;
+
+  const select = document.getElementById('permission-user-select');
+  const editor = document.getElementById('permission-editor');
+
+  editor.classList.add('hidden');
+  currentPermissionTarget = null;
+
+  select.disabled = true;
+  select.innerHTML = '<option value="">Loading accounts...</option>';
+
+  showMessage(
+    document.getElementById('permission-message'),
+    ''
+  );
+
+  try {
+    users = await fetchManageableUsers();
+
+    renderPermissionTargets();
+
+    if (users.length === 0) {
+      document.getElementById('permission-user-info').textContent =
+        'No eligible User or Admin accounts were found.';
+    } else {
+      document.getElementById('permission-user-info').textContent =
+        'Select an account to view or update its module permissions.';
+    }
+  } catch (error) {
+    select.innerHTML = '<option value="">Unable to load accounts</option>';
+
+    showMessage(
+      document.getElementById('permission-message'),
+      error.message,
+      'error'
+    );
+  } finally {
+    select.disabled = false;
+  }
+}
+
+async function loadSelectedPermissions(userId) {
+  if (!isSuperadmin() || !userId) return;
+
+  const editor = document.getElementById('permission-editor');
+  const tableBody = document.getElementById('permission-table-body');
+  const info = document.getElementById('permission-user-info');
+
+  editor.classList.remove('hidden');
+
+  tableBody.innerHTML = `
+    <tr>
+      <td colspan="5" class="empty-state">Loading permissions...</td>
+    </tr>
+  `;
+
+  showMessage(
+    document.getElementById('permission-message'),
+    ''
+  );
+
+  currentPermissionTarget = null;
+
+  try {
+    const data = await apiRequest(
+      `/api/permissions/${encodeURIComponent(userId)}`
+    );
+
+    currentPermissionTarget = data.user;
+    const selectedPermissions = normalizePermissions(data.permissions);
+
+    permissionsForEditor = selectedPermissions;
+
+    info.textContent =
+      `${data.user.full_name} — ${formatRole(data.user.role)} — ${data.user.email}`;
+
+    renderPermissionEditor(selectedPermissions);
+  } catch (error) {
+    editor.classList.add('hidden');
+
+    showMessage(
+      document.getElementById('permission-message'),
+      error.message,
+      'error'
+    );
+  }
+}
+
+let permissionsForEditor = [];
+
+function renderPermissionEditor(data) {
+  const tableBody = document.getElementById('permission-table-body');
+
+  tableBody.innerHTML = data.map((permission) => {
+    const moduleName = escapeHtml(permission.module_name);
+
+    const checkboxes = ACTIONS.map((action) => `
+      <td>
+        <label class="permission-checkbox">
+          <input
+            type="checkbox"
+            data-module="${moduleName}"
+            data-action="${action}"
+            ${permission[action] ? 'checked' : ''}
+            aria-label="${moduleName} ${ACTION_LABELS[action]}"
+          />
+        </label>
+      </td>
+    `).join('');
+
+    return `
+      <tr>
+        <td class="permission-module-name">${moduleName}</td>
+        ${checkboxes}
+      </tr>
+    `;
+  }).join('');
+}
+
+document.getElementById('permission-user-select').addEventListener(
+  'change',
+  (event) => {
+    const userId = event.target.value;
+
+    if (!userId) {
+      currentPermissionTarget = null;
+      document.getElementById('permission-editor').classList.add('hidden');
+      document.getElementById('permission-user-info').textContent =
+        'No account selected.';
+      return;
+    }
+
+    loadSelectedPermissions(userId);
+  }
+);
+
+function collectPermissionChanges() {
+  return MODULES.map((moduleName) => {
+    const permission = {
+      module_name: moduleName,
+    };
+
+    ACTIONS.forEach((action) => {
+      const checkbox = document.querySelector(
+        `#permission-table-body input[data-module="${CSS.escape(moduleName)}"][data-action="${action}"]`
+      );
+
+      permission[action] = Boolean(checkbox && checkbox.checked);
+    });
+
+    return permission;
+  });
+}
+
+document.getElementById('save-permissions-button').addEventListener(
+  'click',
+  async () => {
+    if (!isSuperadmin() || !currentPermissionTarget) return;
+
+    const button = document.getElementById('save-permissions-button');
+
+    button.disabled = true;
+    button.textContent = 'Saving...';
+
+    try {
+      const payload = {
+        permissions: collectPermissionChanges(),
+      };
+
+      const data = await apiRequest(
+        `/api/permissions/${encodeURIComponent(currentPermissionTarget.user_id)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        }
+      );
+
+      permissionsForEditor = normalizePermissions(data.permissions);
+
+      renderPermissionEditor(permissionsForEditor);
+
+      showMessage(
+        document.getElementById('permission-message'),
+        data.message || 'Permissions saved successfully.',
+        'success'
+      );
+    } catch (error) {
+      showMessage(
+        document.getElementById('permission-message'),
+        error.message,
+        'error'
+      );
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Save Permissions';
+    }
+  }
+);
+
+document.getElementById('reset-permissions-button').addEventListener(
+  'click',
+  async () => {
+    if (!isSuperadmin() || !currentPermissionTarget) return;
+
+    const select = document.getElementById('permission-user-select');
+
+    await loadSelectedPermissions(select.value);
+  }
+);
+
+// ==========================================
 // LOGOUT
+// ==========================================
 
 document.getElementById('logout-button').addEventListener(
   'click',
@@ -595,37 +1204,40 @@ document.getElementById('logout-button').addEventListener(
 
     currentUser = null;
     users = [];
+    permissions = [];
+    permissionsForEditor = [];
+    currentPermissionTarget = null;
+    selectedModule = null;
+
     userSearch.value = '';
+
+    document.getElementById('permission-user-select').innerHTML =
+      '<option value="">Select an account</option>';
+
+    document.getElementById('permission-editor').classList.add('hidden');
 
     showLogin();
   }
 );
 
+// ==========================================
 // RESTORE EXISTING SESSION
+// ==========================================
 
 async function initializeApp() {
-  // Password reset links take priority over automatic session restoration.
   if (resetToken) {
     showResetPassword();
     return;
   }
 
   try {
-    const data = await apiRequest('/api/auth/me');
-
-    if (!['admin', 'superadmin'].includes(data.user?.role)) {
-      showLogin(
-        'Administrator access is required to use this portal.',
-        'error'
-      );
-      return;
-    }
-
-    currentUser = data.user;
+    await loadCurrentAccount();
 
     showDashboard();
-    await loadUsers();
   } catch (_error) {
+    currentUser = null;
+    permissions = [];
+
     showLogin();
   }
 }
