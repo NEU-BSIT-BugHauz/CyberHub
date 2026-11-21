@@ -3,6 +3,9 @@
 
   let requestSequence = 0;
   let initialized = false;
+  let wasVisible = false;
+  let customerRows = [];
+  let editingNumber = null;
 
   function escapeCustomerHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -44,6 +47,7 @@
           </p>
         </div>
         <span id="customer-count" class="customer-count">0 customers</span>
+        <button type="button" id="customer-add" class="btn btn-primary hidden">Add Customer</button>
       </div>
 
       <form id="customer-search-form" class="customer-filters">
@@ -87,6 +91,17 @@
         </div>
       </form>
 
+      <form id="customer-editor" class="customer-editor hidden">
+        <h3 id="customer-editor-title">Add Customer</h3>
+        <div class="customer-editor-grid">
+          <label>Customer number<input id="customer-number" maxlength="20" pattern="[A-Za-z0-9_-]+" required /></label>
+          <label>Customer name<input id="customer-name" maxlength="150" required /></label>
+          <label>Address<textarea id="customer-address" maxlength="2000" rows="2"></textarea></label>
+          <label>Payment terms<select id="customer-term" required><option value="COD">COD</option><option value="30D">30 Days</option><option value="45D">45 Days</option></select></label>
+        </div>
+        <div class="customer-editor-actions"><button id="customer-save" class="btn btn-primary" type="submit">Save Customer</button><button id="customer-cancel" class="btn btn-outline" type="button">Cancel</button></div>
+      </form>
+
       <p
         id="customer-list-message"
         class="message"
@@ -102,11 +117,12 @@
               <th>Customer Name</th>
               <th>Address</th>
               <th>Payment Terms</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="customer-table-body">
             <tr>
-              <td colspan="4" class="empty-state">
+              <td colspan="5" class="empty-state">
                 Open the Customer module to load records.
               </td>
             </tr>
@@ -138,6 +154,15 @@
       }
     );
 
+    document.getElementById('customer-add').addEventListener('click', () => openCustomerEditor());
+    document.getElementById('customer-cancel').addEventListener('click', closeCustomerEditor);
+    document.getElementById('customer-editor').addEventListener('submit', saveCustomer);
+    document.getElementById('customer-table-body').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-edit-index]');
+      if (!button || !getModulePermission('Customer').can_edit) return;
+      const index = Number(button.dataset.editIndex);
+      if (Number.isInteger(index) && customerRows[index]) openCustomerEditor(customerRows[index]);
+    });
     initialized = true;
   }
 
@@ -156,7 +181,7 @@
 
     body.innerHTML = `
       <tr>
-        <td colspan="4" class="empty-state">
+        <td colspan="5" class="empty-state">
           Loading customer records...
         </td>
       </tr>
@@ -172,13 +197,14 @@
     const body = document.getElementById('customer-table-body');
     const count = document.getElementById('customer-count');
 
+    customerRows = customers;
     count.textContent =
       `${customers.length} ${customers.length === 1 ? 'customer' : 'customers'}`;
 
     if (customers.length === 0) {
       body.innerHTML = `
         <tr>
-          <td colspan="4" class="empty-state">
+          <td colspan="5" class="empty-state">
             No matching customer records found.
           </td>
         </tr>
@@ -186,7 +212,7 @@
       return;
     }
 
-    body.innerHTML = customers.map((customer) => `
+    body.innerHTML = customers.map((customer, index) => `
       <tr>
         <td class="customer-number">
           ${escapeCustomerHtml(customer.custno)}
@@ -202,6 +228,7 @@
             ${escapeCustomerHtml(customer.payterm)}
           </span>
         </td>
+        <td>${getModulePermission('Customer').can_edit ? `<button class="btn btn-outline" type="button" data-edit-index="${index}">Edit</button>` : '—'}</td>
       </tr>
     `).join('');
   }
@@ -242,18 +269,18 @@
 
       body.innerHTML = `
         <tr>
-          <td colspan="4" class="empty-state">
+          <td colspan="5" class="empty-state">
             Unable to retrieve customer records.
           </td>
         </tr>
       `;
 
-      if (error.message.includes('403')) {
+      if (error.status === 403) {
         showCustomerMessage(
           'Access denied. You do not have permission to view Customer records.',
           'error'
         );
-      } else if (error.message.includes('401')) {
+      } else if (error.status === 401) {
         showCustomerMessage(
           'Your session has expired. Please sign in again.',
           'error'
@@ -266,6 +293,55 @@
         button.disabled = false;
         button.textContent = 'Search';
       }
+    }
+  }
+
+  function openCustomerEditor(customer = null) {
+    const permission = getModulePermission('Customer');
+    if (customer ? !permission.can_edit : !permission.can_create) return;
+    editingNumber = customer ? customer.custno : null;
+    document.getElementById('customer-editor-title').textContent = customer ? 'Edit Customer' : 'Add Customer';
+    const number = document.getElementById('customer-number');
+    number.value = customer?.custno || '';
+    number.readOnly = Boolean(customer);
+    document.getElementById('customer-name').value = customer?.custname || '';
+    document.getElementById('customer-address').value = customer?.address || '';
+    document.getElementById('customer-term').value = customer?.payterm || 'COD';
+    document.getElementById('customer-editor').classList.remove('hidden');
+    (customer ? document.getElementById('customer-name') : number).focus();
+  }
+
+  function closeCustomerEditor() {
+    editingNumber = null;
+    document.getElementById('customer-editor')?.classList.add('hidden');
+  }
+
+  async function saveCustomer(event) {
+    event.preventDefault();
+    const saveButton = document.getElementById('customer-save');
+    const editing = editingNumber !== null;
+    if (!(editing ? getModulePermission('Customer').can_edit : getModulePermission('Customer').can_create)) return;
+    const customer = {
+      custno: document.getElementById('customer-number').value.trim(),
+      custname: document.getElementById('customer-name').value.trim(),
+      address: document.getElementById('customer-address').value.trim(),
+      payterm: document.getElementById('customer-term').value,
+    };
+    saveButton.disabled = true;
+    try {
+      await apiRequest(editing ? `/api/customers/${encodeURIComponent(editingNumber)}` : '/api/customers', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(customer),
+      });
+      closeCustomerEditor();
+      await loadCustomers();
+      if (!document.getElementById('customer-table-body').textContent.includes('Unable to retrieve')) {
+        showCustomerMessage(editing ? 'Customer updated successfully.' : 'Customer created successfully.', 'success');
+      }
+    } catch (error) {
+      showCustomerMessage(error.status === 403 ? 'Access denied: insufficient Customer permissions.' : error.message, 'error');
+    } finally {
+      saveButton.disabled = false;
     }
   }
 
@@ -294,9 +370,13 @@
       placeholderPanel.classList.toggle('hidden', isCustomerModule);
     }
 
-    if (isCustomerModule) {
-      loadCustomers();
+    document.getElementById('customer-add').classList.toggle('hidden', !isCustomerModule || !getModulePermission('Customer').can_create);
+    if (isCustomerModule && !wasVisible) loadCustomers();
+    if (!isCustomerModule) {
+      requestSequence += 1;
+      closeCustomerEditor();
     }
+    wasVisible = isCustomerModule;
   }
 
   function initializeCustomerModule() {
