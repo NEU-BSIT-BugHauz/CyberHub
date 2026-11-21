@@ -406,9 +406,218 @@ describe('S2-DEV-05: Product Create and Edit', () => {
     expect(response.body.error).toMatch(/unavailable/i);
   });
 
-  test('does not implement Product delete yet', async () => {
+});
+
+
+describe('S2-DEV-06: Product Soft Delete and Restore', () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  function rights(overrides = {}) {
+    return {
+      module_name: 'Product',
+      can_view: true,
+      can_create: false,
+      can_edit: false,
+      can_delete: true,
+      ...overrides,
+    };
+  }
+
+  function mockDeleteUser(rows = [], overrides = {}, user = createUser()) {
+    pool.query.mockResolvedValueOnce({ rows: [user] });
+    if (user.role !== 'superadmin') {
+      pool.query.mockResolvedValueOnce({ rows: [rights(overrides)] });
+    }
+    if (rows !== null) pool.query.mockResolvedValueOnce({ rows });
+  }
+
+  function mockDeletedList(rows = [], overrides = {}, user = createUser()) {
+    pool.query.mockResolvedValueOnce({ rows: [user] });
+    if (user.role !== 'superadmin') {
+      pool.query.mockResolvedValueOnce({ rows: [rights(overrides)] }); // view
+      pool.query.mockResolvedValueOnce({ rows: [rights(overrides)] }); // delete
+    }
+    if (rows !== null) pool.query.mockResolvedValueOnce({ rows });
+  }
+
+  test('active list excludes deleted products by default', async () => {
+    mockViewer([createProduct()]);
+    const response = await request(app).get('/api/products').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('WHERE is_deleted = FALSE'), ['', '']
+    );
+  });
+
+  test('allows deleted listing when user has view AND delete', async () => {
+    mockDeletedList([createProduct({ is_deleted: true, deleted_by: 1 })]);
+    const response = await request(app).get('/api/products?status=deleted').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.products[0].is_deleted).toBe(true);
+    expect(pool.query).toHaveBeenCalledTimes(4);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('WHERE is_deleted = TRUE'), ['', '']
+    );
+  });
+
+  test('normalizes deleted listing status and combines search and unit filter', async () => {
+    mockDeletedList([createProduct({ is_deleted: true })]);
+    const response = await request(app)
+      .get('/api/products?status=%20DeLeTeD%20&search=AD0&unit=EA')
+      .set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('WHERE is_deleted = TRUE'), ['AD0', 'ea']
+    );
+  });
+
+  test('denies deleted listing without delete permission', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({ rows: [rights({ can_delete: false })] });
+    pool.query.mockResolvedValueOnce({ rows: [rights({ can_delete: false })] });
+    const response = await request(app).get('/api/products?status=deleted').set('x-user-id', '1');
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(3);
+  });
+
+  test('does not allow delete permission to bypass view for deleted listing', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({ rows: [rights({ can_view: false })] });
+    const response = await request(app).get('/api/products?status=deleted').set('x-user-id', '1');
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('case and whitespace cannot bypass deleted-list permissions', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({ rows: [rights({ can_delete: false })] });
+    pool.query.mockResolvedValueOnce({ rows: [rights({ can_delete: false })] });
+    const response = await request(app)
+      .get('/api/products?status=%20DELETED%20')
+      .set('x-user-id', '1');
+    expect(response.status).toBe(403);
+  });
+
+  test.each([
+    '/api/products?status=all',
+    '/api/products?status=',
+    '/api/products?status=deleted&status=active',
+    '/api/products?status=deleted&status=deleted',
+  ])('rejects unsupported or duplicate status parameter: %s', async (endpoint) => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({ rows: [rights()] });
+    const response = await request(app).get(endpoint).set('x-user-id', '1');
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('superadmin can list deleted products without rights lookups', async () => {
+    mockDeletedList([createProduct({ is_deleted: true })], {}, createUser({ role: 'superadmin' }));
+    const response = await request(app).get('/api/products?status=deleted').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('soft-deletes a product without a hard DELETE statement, records user', async () => {
+    mockDeleteUser([createProduct({ is_deleted: true, deleted_by: 1, deleted_at: '2026-11-21' })]);
+    const response = await request(app).delete('/api/products/ad0001').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.product.is_deleted).toBe(true);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = $2'),
+      ['AD0001', 1]
+    );
+    expect(pool.query.mock.calls[2][0]).toContain('WHERE prodcode = $1 AND is_deleted = FALSE');
+  });
+
+  test('requires can_delete for soft deletion even when can_edit is granted', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({ rows: [rights({ can_delete: false, can_edit: true })] });
+    const response = await request(app).delete('/api/products/AD0001').set('x-user-id', '1');
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test.each([
+    ['delete', '/api/products/AD0001'],
+    ['patch', '/api/products/AD0001/restore'],
+  ])('rejects unauthenticated %s', async (method, endpoint) => {
+    const response = await request(app)[method](endpoint);
+    expect(response.status).toBe(401);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['delete', '/api/products/INVALID1'],
+    ['patch', '/api/products/INVALID1/restore'],
+  ])('rejects malformed product code on %s', async (method, endpoint) => {
+    mockDeleteUser(null);
+    const response = await request(app)[method](endpoint).set('x-user-id', '1');
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('returns 404 if active product is missing or already deleted', async () => {
+    mockDeleteUser([]);
     const response = await request(app).delete('/api/products/AD0001').set('x-user-id', '1');
     expect(response.status).toBe(404);
-    expect(pool.query).not.toHaveBeenCalled();
+    expect(response.body.error).toMatch(/active product not found/i);
+  });
+
+  test('restores a product and clears deletion audit fields', async () => {
+    mockDeleteUser([createProduct({ is_deleted: false, deleted_by: null, deleted_at: null })]);
+    const response = await request(app).patch('/api/products/ad0001/restore').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.product.is_deleted).toBe(false);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('SET is_deleted = FALSE, deleted_at = NULL, deleted_by = NULL'),
+      ['AD0001']
+    );
+    expect(pool.query.mock.calls[2][0]).toContain('WHERE prodcode = $1 AND is_deleted = TRUE');
+  });
+
+  test('denies restoration without can_delete permission', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({ rows: [rights({ can_delete: false })] });
+    const response = await request(app).patch('/api/products/AD0001/restore').set('x-user-id', '1');
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('returns 404 when restoring an active or missing product', async () => {
+    mockDeleteUser([]);
+    const response = await request(app).patch('/api/products/AD0001/restore').set('x-user-id', '1');
+    expect(response.status).toBe(404);
+    expect(response.body.error).toMatch(/deleted product not found/i);
+  });
+
+  test('handles an audited HopeDB constraint blocking soft-delete', async () => {
+    mockDeleteUser(null);
+    const error = new Error('Cannot delete product row: 2 active related record(s) still exist.');
+    error.code = 'P0001';
+    pool.query.mockRejectedValueOnce(error);
+    const response = await request(app).delete('/api/products/AD0001').set('x-user-id', '1');
+    expect(response.status).toBe(409);
+    expect(response.body.error).toMatch(/active related records/i);
+  });
+
+  test('forwards unrelated database errors to the global handler', async () => {
+    mockDeleteUser(null);
+    pool.query.mockRejectedValueOnce(new Error('DB unavailable'));
+    const response = await request(app).delete('/api/products/AD0001').set('x-user-id', '1');
+    expect(response.status).toBe(500);
+    expect(response.body.error).toMatch(/unavailable/i);
+  });
+
+  test('deleted product codes remain reserved during create', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({ rows: [rights({ can_create: true })] });
+    const err = new Error('unique constraint violation');
+    err.code = '23505';
+    pool.query.mockRejectedValueOnce(err);
+    const response = await request(app).post('/api/products').set('x-user-id', '1')
+      .send({ prodcode: 'AD0001', description: 'Toshiba Canvio', unit: 'ea' });
+    expect(response.status).toBe(409);
+    expect(response.body.error).toMatch(/restore the deleted product/i);
   });
 });
