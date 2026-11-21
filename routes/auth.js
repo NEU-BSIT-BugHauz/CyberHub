@@ -34,7 +34,7 @@ function sanitizeUser(user) {
     user_id: user.user_id,
     empno: user.empno,
     full_name: user.full_name ||
-      `${user.firstname} ${user.lastname}`.trim(),
+      `${user.firstname || ''} ${user.lastname || ''}`.trim(),
     email: user.email,
     role: user.role,
     status: user.status,
@@ -42,20 +42,78 @@ function sanitizeUser(user) {
   };
 }
 
-function requireAuth(req, res, next) {
-  if (!req.session.user) {
+function clearSession(req, res, next, status, message) {
+  req.session.destroy((err) => {
+    if (err) {
+      return next(err);
+    }
+
+    res.clearCookie('sid', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+
+    return res.status(status).json({
+      error: message,
+    });
+  });
+}
+
+async function requireAuth(req, res, next) {
+  if (!req.session || !req.session.user || !req.session.user.user_id) {
     return res.status(401).json({
       error: 'Authentication required.',
     });
   }
 
-  next();
+  try {
+    const result = await pool.query(
+      `SELECT
+          u.id AS user_id,
+          u.empno,
+          u.full_name,
+          u.email,
+          u.role,
+          u.status,
+          u.must_set_password,
+          e.firstname,
+          e.lastname
+       FROM users u
+       JOIN employee e ON e.empno = u.empno
+       WHERE u.id = $1
+         AND u.status = 'active'
+         AND e.sepdate IS NULL
+         AND e.is_deleted = FALSE`,
+      [req.session.user.user_id]
+    );
+
+    const user = result.rows[0];
+
+    if (!user) {
+      return clearSession(
+        req,
+        res,
+        next,
+        401,
+        'Your session is no longer valid. Please log in again.'
+      );
+    }
+
+    // Always use current database values, never stale session privileges.
+    req.session.user = sanitizeUser(user);
+    req.currentUser = user;
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
 }
 
 function requireAdmin(req, res, next) {
   if (
-    !req.session.user ||
-    !['admin', 'superadmin'].includes(req.session.user.role)
+    !req.currentUser ||
+    !['admin', 'superadmin'].includes(req.currentUser.role)
   ) {
     return res.status(403).json({
       error: 'Administrator access required.',
@@ -111,7 +169,6 @@ router.post('/register', async (req, res, next) => {
       });
     }
 
-    // Step 2: Build full_name from the employee record.
     const fullName =
       `${employee.firstname} ${employee.lastname}`.trim();
 
@@ -140,7 +197,7 @@ router.post('/register', async (req, res, next) => {
       });
     }
 
-    next(err);
+    return next(err);
   }
 });
 
@@ -199,29 +256,23 @@ router.post('/login', async (req, res, next) => {
       });
     });
 
-    req.session.user = {
-      user_id: user.user_id,
-      empno: user.empno,
-      full_name: user.full_name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      must_set_password: user.must_set_password,
-    };
+    req.session.user = sanitizeUser(user);
 
     return res.json({
       message: 'Login successful.',
       user: sanitizeUser(user),
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 
 // CURRENT USER
 router.get('/me', requireAuth, (req, res) => {
-  res.json({
-    user: req.session.user,
+  return res.json({
+    user: req.currentUser
+      ? sanitizeUser(req.currentUser)
+      : req.session.user,
   });
 });
 
@@ -256,18 +307,18 @@ router.get('/pending', requireAuth, requireAdmin, async (_req, res, next) => {
           u.created_at,
           u.must_set_password
        FROM users u
-WHERE u.status = 'pending'
+       WHERE u.status = 'pending'
        ORDER BY u.created_at ASC`
     );
 
     const users = result.rows.map(sanitizeUser);
 
-    res.json({
+    return res.json({
       count: users.length,
       users,
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 

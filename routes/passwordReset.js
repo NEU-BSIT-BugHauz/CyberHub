@@ -105,7 +105,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res, next) =>
         `INSERT INTO password_resets
            (user_id, token_hash, expires_at)
          VALUES
-           ($1, $2, NOW() + INTERVAL '15 minutes')`,
+           ($1, $2, NOW() + INTERVAL '${RESET_TOKEN_EXPIRY_MINUTES} minutes')`,
         [user.id, tokenHash]
       );
 
@@ -200,6 +200,7 @@ router.post('/reset-password', resetPasswordLimiter, async (req, res, next) => {
     const updateResult = await client.query(
       `UPDATE users
        SET password_hash = $1,
+           must_set_password = FALSE,
            updated_at = NOW()
        WHERE id = $2
          AND status = 'active'
@@ -231,8 +232,8 @@ router.post('/reset-password', resetPasswordLimiter, async (req, res, next) => {
     await client.query('COMMIT');
 
     return res.status(200).json({
-  message: 'Password reset successful.',
-});
+      message: 'Password reset successful.',
+    });
   } catch (error) {
     if (client) {
       try {
