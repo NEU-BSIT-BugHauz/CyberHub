@@ -72,6 +72,14 @@
           </select>
         </div>
 
+        <div id="customer-status-field" class="customer-payment-field hidden">
+          <label for="customer-status">Record status</label>
+          <select id="customer-status">
+            <option value="active">Active customers</option>
+            <option value="deleted">Deleted customers</option>
+          </select>
+        </div>
+
         <div class="customer-filter-actions">
           <button
             type="submit"
@@ -150,6 +158,7 @@
       () => {
         document.getElementById('customer-search').value = '';
         document.getElementById('customer-payterm').value = '';
+        document.getElementById('customer-status').value = 'active';
         loadCustomers();
       }
     );
@@ -158,10 +167,23 @@
     document.getElementById('customer-cancel').addEventListener('click', closeCustomerEditor);
     document.getElementById('customer-editor').addEventListener('submit', saveCustomer);
     document.getElementById('customer-table-body').addEventListener('click', (event) => {
-      const button = event.target.closest('[data-edit-index]');
-      if (!button || !getModulePermission('Customer').can_edit) return;
-      const index = Number(button.dataset.editIndex);
-      if (Number.isInteger(index) && customerRows[index]) openCustomerEditor(customerRows[index]);
+      const button = event.target.closest('[data-customer-action]');
+      if (!button) return;
+
+      const index = Number(button.dataset.customerIndex);
+      if (!Number.isInteger(index) || !customerRows[index]) return;
+
+      const customer = customerRows[index];
+      const action = button.dataset.customerAction;
+      const permission = getModulePermission('Customer');
+
+      if (action === 'edit' && permission.can_edit && !customer.is_deleted) {
+        openCustomerEditor(customer);
+      } else if (action === 'delete' && permission.can_delete && !customer.is_deleted) {
+        changeCustomerStatus(customer, 'delete', button);
+      } else if (action === 'restore' && permission.can_delete && customer.is_deleted) {
+        changeCustomerStatus(customer, 'restore', button);
+      }
     });
     initialized = true;
   }
@@ -196,41 +218,44 @@
   function renderCustomers(customers) {
     const body = document.getElementById('customer-table-body');
     const count = document.getElementById('customer-count');
+    const viewingDeleted = document.getElementById('customer-status').value === 'deleted';
+    const permission = getModulePermission('Customer');
 
     customerRows = customers;
-    count.textContent =
-      `${customers.length} ${customers.length === 1 ? 'customer' : 'customers'}`;
+    count.textContent = `${customers.length} ${viewingDeleted ? 'deleted ' : ''}${customers.length === 1 ? 'customer' : 'customers'}`;
 
     if (customers.length === 0) {
       body.innerHTML = `
-        <tr>
-          <td colspan="5" class="empty-state">
-            No matching customer records found.
-          </td>
-        </tr>
+        <tr><td colspan="5" class="empty-state">No matching customer records found.</td></tr>
       `;
       return;
     }
 
-    body.innerHTML = customers.map((customer, index) => `
-      <tr>
-        <td class="customer-number">
-          ${escapeCustomerHtml(customer.custno)}
-        </td>
-        <td class="customer-name">
-          ${escapeCustomerHtml(customer.custname)}
-        </td>
-        <td class="customer-address">
-          ${escapeCustomerHtml(customer.address || '—')}
-        </td>
-        <td>
-          <span class="customer-payment-badge">
-            ${escapeCustomerHtml(customer.payterm)}
-          </span>
-        </td>
-        <td>${getModulePermission('Customer').can_edit ? `<button class="btn btn-outline" type="button" data-edit-index="${index}">Edit</button>` : '—'}</td>
-      </tr>
-    `).join('');
+    body.innerHTML = customers.map((customer, index) => {
+      const actions = [];
+      if (viewingDeleted) {
+        if (permission.can_delete) {
+          actions.push(`<button class="btn btn-outline" type="button" data-customer-action="restore" data-customer-index="${index}">Restore</button>`);
+        }
+      } else {
+        if (permission.can_edit) {
+          actions.push(`<button class="btn btn-outline" type="button" data-customer-action="edit" data-customer-index="${index}">Edit</button>`);
+        }
+        if (permission.can_delete) {
+          actions.push(`<button class="btn btn-outline customer-delete-button" type="button" data-customer-action="delete" data-customer-index="${index}">Delete</button>`);
+        }
+      }
+
+      return `
+        <tr>
+          <td class="customer-number">${escapeCustomerHtml(customer.custno)}</td>
+          <td class="customer-name">${escapeCustomerHtml(customer.custname)}</td>
+          <td class="customer-address">${escapeCustomerHtml(customer.address || '—')}</td>
+          <td><span class="customer-payment-badge">${escapeCustomerHtml(customer.payterm)}</span></td>
+          <td><div class="customer-row-actions">${actions.join(' ') || '—'}</div></td>
+        </tr>
+      `;
+    }).join('');
   }
 
   async function loadCustomers() {
@@ -241,11 +266,14 @@
 
     const search = document.getElementById('customer-search').value.trim();
     const payterm = document.getElementById('customer-payterm').value;
+    const canDelete = getModulePermission('Customer').can_delete;
+    const status = canDelete ? document.getElementById('customer-status').value : 'active';
 
     const params = new URLSearchParams();
 
     if (search) params.set('search', search);
     if (payterm) params.set('payterm', payterm);
+    if (status === 'deleted') params.set('status', status);
 
     const requestId = ++requestSequence;
 
@@ -257,15 +285,16 @@
 
       const data = await apiRequest(endpoint);
 
-      if (requestId !== requestSequence) return;
+      if (requestId !== requestSequence) return false;
 
       if (!Array.isArray(data.customers)) {
         throw new Error('The server returned an invalid customer list.');
       }
 
       renderCustomers(data.customers);
+      return true;
     } catch (error) {
-      if (requestId !== requestSequence) return;
+      if (requestId !== requestSequence) return false;
 
       body.innerHTML = `
         <tr>
@@ -288,6 +317,7 @@
       } else {
         showCustomerMessage(error.message, 'error');
       }
+      return false;
     } finally {
       if (requestId === requestSequence) {
         button.disabled = false;
@@ -298,7 +328,7 @@
 
   function openCustomerEditor(customer = null) {
     const permission = getModulePermission('Customer');
-    if (customer ? !permission.can_edit : !permission.can_create) return;
+    if (customer ? (!permission.can_edit || customer.is_deleted) : !permission.can_create) return;
     editingNumber = customer ? customer.custno : null;
     document.getElementById('customer-editor-title').textContent = customer ? 'Edit Customer' : 'Add Customer';
     const number = document.getElementById('customer-number');
@@ -334,14 +364,38 @@
         body: JSON.stringify(customer),
       });
       closeCustomerEditor();
-      await loadCustomers();
-      if (!document.getElementById('customer-table-body').textContent.includes('Unable to retrieve')) {
+      if (await loadCustomers()) {
         showCustomerMessage(editing ? 'Customer updated successfully.' : 'Customer created successfully.', 'success');
       }
     } catch (error) {
       showCustomerMessage(error.status === 403 ? 'Access denied: insufficient Customer permissions.' : error.message, 'error');
     } finally {
       saveButton.disabled = false;
+    }
+  }
+
+  async function changeCustomerStatus(customer, action, button) {
+    if (!getModulePermission('Customer').can_delete) return;
+
+    const deleting = action === 'delete';
+    if (deleting && !window.confirm(`Soft-delete customer ${customer.custno} (${customer.custname})? You can restore this customer later.`)) {
+      return;
+    }
+
+    button.disabled = true;
+    try {
+      const endpoint = `/api/customers/${encodeURIComponent(customer.custno)}`;
+      await apiRequest(deleting ? endpoint : `${endpoint}/restore`, {
+        method: deleting ? 'DELETE' : 'PATCH',
+      });
+
+      if (await loadCustomers()) {
+        showCustomerMessage(deleting ? 'Customer deleted successfully. You can restore it from Deleted customers.' : 'Customer restored successfully.', 'success');
+      }
+    } catch (error) {
+      showCustomerMessage(error.status === 403 ? 'Access denied: Customer delete permission required.' : error.message, 'error');
+    } finally {
+      button.disabled = false;
     }
   }
 
@@ -370,7 +424,12 @@
       placeholderPanel.classList.toggle('hidden', isCustomerModule);
     }
 
-    document.getElementById('customer-add').classList.toggle('hidden', !isCustomerModule || !getModulePermission('Customer').can_create);
+    const permission = getModulePermission('Customer');
+    const statusField = document.getElementById('customer-status-field');
+    statusField.classList.toggle('hidden', !isCustomerModule || !permission.can_delete);
+    if (!permission.can_delete) document.getElementById('customer-status').value = 'active';
+
+    document.getElementById('customer-add').classList.toggle('hidden', !isCustomerModule || !permission.can_create);
     if (isCustomerModule && !wasVisible) loadCustomers();
     if (!isCustomerModule) {
       requestSequence += 1;
