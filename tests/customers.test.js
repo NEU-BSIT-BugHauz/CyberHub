@@ -366,3 +366,184 @@ describe('S2-DEV-02 additional validation and authorization', () => {
     expect(pool.query).not.toHaveBeenCalled();
   });
 });
+
+describe('S2-DEV-03 customer soft delete and restore', () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  function grantPermissions(overrides = {}) {
+    pool.query
+      .mockResolvedValueOnce({ rows: [createUser()] })
+      .mockResolvedValueOnce({
+        rows: [{
+          module_name: 'Customer',
+          can_view: true,
+          can_create: false,
+          can_edit: false,
+          can_delete: false,
+          ...overrides,
+        }],
+      });
+  }
+
+  test('active customer list excludes soft-deleted rows', async () => {
+    grantPermissions();
+    pool.query.mockResolvedValueOnce({ rows: [createCustomer({ is_deleted: false })] });
+    const response = await request(app).get('/api/customers').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.customers).toHaveLength(1);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('is_deleted = FALSE'),
+      ['', '']
+    );
+  });
+
+  test('lists deleted records for users with view and delete permission', async () => {
+    grantPermissions({ can_delete: true });
+    // requireDelete rechecks user_rights after requireView.
+    pool.query
+      .mockResolvedValueOnce({
+        rows: [{ module_name: 'Customer', can_view: true, can_delete: true }],
+      })
+      .mockResolvedValueOnce({ rows: [createCustomer({ is_deleted: true })] });
+    const response = await request(app)
+      .get('/api/customers?status=deleted')
+      .set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.customers[0].is_deleted).toBe(true);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('is_deleted = TRUE'),
+      ['', '']
+    );
+  });
+
+  test('denies deleted listing without delete permission', async () => {
+    grantPermissions();
+    pool.query.mockResolvedValueOnce({
+      rows: [{ module_name: 'Customer', can_view: true, can_delete: false }],
+    });
+    const response = await request(app)
+      .get('/api/customers?status=deleted')
+      .set('x-user-id', '1');
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(3);
+  });
+
+  test('normalization cannot bypass deleted-list permissions', async () => {
+    grantPermissions();
+    pool.query.mockResolvedValueOnce({
+      rows: [{ module_name: 'Customer', can_view: true, can_delete: false }],
+    });
+    const response = await request(app)
+      .get('/api/customers?status=%20DeLeTeD%20')
+      .set('x-user-id', '1');
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(3);
+  });
+
+  test('rejects unsupported status', async () => {
+    grantPermissions();
+    const response = await request(app).get('/api/customers?status=all').set('x-user-id', '1');
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('rejects duplicate status query parameters', async () => {
+    grantPermissions();
+    const response = await request(app)
+      .get('/api/customers?status=active&status=deleted')
+      .set('x-user-id', '1');
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('soft deletes a customer and records the acting user', async () => {
+    grantPermissions({ can_delete: true });
+    pool.query.mockResolvedValueOnce({
+      rows: [createCustomer({ is_deleted: true, deleted_by: 1, deleted_at: '2026-11-21T12:00:00Z' })],
+    });
+    const response = await request(app).delete('/api/customers/CUST001').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.customer.is_deleted).toBe(true);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('SET is_deleted = TRUE'),
+      ['CUST001', 1]
+    );
+    expect(pool.query.mock.calls[2][0]).not.toMatch(/DELETE\s+FROM/i);
+  });
+
+  test('denies delete without can_delete permission', async () => {
+    grantPermissions();
+    const response = await request(app).delete('/api/customers/CUST001').set('x-user-id', '1');
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('rejects unauthenticated deletion and restoration', async () => {
+    const deleting = await request(app).delete('/api/customers/CUST001');
+    const restoring = await request(app).patch('/api/customers/CUST001/restore');
+    expect(deleting.status).toBe(401);
+    expect(restoring.status).toBe(401);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  test('rejects invalid customer numbers on delete', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] });
+    const response = await request(app).delete('/api/customers/invalid%20number').set('x-user-id', '1');
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns 404 when customer already deleted or missing', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockResolvedValueOnce({ rows: [] });
+    const response = await request(app).delete('/api/customers/CUST001').set('x-user-id', '1');
+    expect(response.status).toBe(404);
+  });
+
+  test('restores a customer and clears deletion audit fields', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockResolvedValueOnce({ rows: [createCustomer({ is_deleted: false, deleted_at: null, deleted_by: null })] });
+    const response = await request(app).patch('/api/customers/CUST001/restore').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.customer.is_deleted).toBe(false);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('deleted_at = NULL, deleted_by = NULL'),
+      ['CUST001']
+    );
+  });
+
+  test('denies restore without delete permission', async () => {
+    grantPermissions();
+    const response = await request(app).patch('/api/customers/CUST001/restore').set('x-user-id', '1');
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('returns 404 when restoring active or missing customer', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockResolvedValueOnce({ rows: [] });
+    const response = await request(app).patch('/api/customers/CUST001/restore').set('x-user-id', '1');
+    expect(response.status).toBe(404);
+  });
+
+  test('edit query cannot modify soft-deleted customers', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockResolvedValueOnce({ rows: [] });
+    const response = await request(app).put('/api/customers/CUST001').set('x-user-id', '1')
+      .send({ custname: 'Not Editable', payterm: 'COD' });
+    expect(response.status).toBe(404);
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('AND is_deleted = FALSE'),
+      ['CUST001', 'Not Editable', null, 'COD']
+    );
+  });
+
+  test('deleted customer numbers remain reserved on create', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockRejectedValueOnce({ code: '23505' });
+    const response = await request(app).post('/api/customers').set('x-user-id', '1')
+      .send(createCustomer());
+    expect(response.status).toBe(409);
+    expect(response.body.error).toMatch(/restore/i);
+  });
+});

@@ -11,3 +11,7 @@
 .customer-table th, .customer-table td { padding:.8rem; text-align:left; border-bottom:1px solid var(--border); }
 .customer-table th { color:var(--muted); } .customer-number { font-weight:700; }
 .customer-payment-badge { padding:.2rem .55rem; border-radius:12px; background:var(--surface-light); }
+
+/* S2-DEV-03: Soft delete and restore actions */
+.customer-row-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.customer-delete-button { color: var(--danger); border-color: var(--danger); }
