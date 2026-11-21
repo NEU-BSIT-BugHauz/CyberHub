@@ -902,3 +902,85 @@ describe('S2-DEV-07: Product Price History', () => {
     expect(r.body.error).toMatch(/Database unavailable/i);
   });
 });
+
+
+describe('S2-DEV-08: Current effective Product Price', () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  test('returns the current price and its effective date in the Product list', async () => {
+    mockViewer([{ ...createProduct(), current_price: '129.50', current_price_effdate: '2026-11-01' }]);
+    const response = await request(app).get('/api/products').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.products[0]).toMatchObject({
+      current_price: '129.50',
+      current_price_effdate: '2026-11-01',
+    });
+    const sql = pool.query.mock.calls[2][0];
+    expect(sql).toMatch(/LEFT JOIN LATERAL/i);
+    expect(sql).toMatch(/ph\.is_deleted = FALSE/i);
+    expect(sql).toMatch(/ph\.effdate <= \(NOW\(\) AT TIME ZONE 'Asia\/Manila'\)::date/i);
+    expect(sql).toMatch(/ORDER BY ph\.effdate DESC\s+LIMIT 1/i);
+  });
+
+  test('lists products without an applicable price as null, rather than 0', async () => {
+    mockViewer([{ ...createProduct(), current_price: null, current_price_effdate: null }]);
+    const response = await request(app).get('/api/products').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.products[0].current_price).toBeNull();
+    expect(response.body.products[0].current_price_effdate).toBeNull();
+  });
+
+  test('current-price lookup requires authentication', async () => {
+    const response = await request(app).get('/api/products/AD0001/current-price');
+    expect(response.status).toBe(401);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  test('current-price lookup enforces Product can_view', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] })
+      .mockResolvedValueOnce({ rows: [{ module_name: 'Product', can_create: true, can_view: false }] });
+    const response = await request(app).get('/api/products/AD0001/current-price').set('x-user-id', '1');
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('current-price lookup returns an active product price', async () => {
+    mockViewer([{ prodcode: 'AD0001', current_price: '349.99', current_price_effdate: '2026-11-01' }]);
+    const response = await request(app).get('/api/products/ad0001/current-price').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.product.current_price).toBe('349.99');
+    expect(response.body.product.current_price_effdate).toBe('2026-11-01');
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('p.is_deleted = FALSE'), ['AD0001']);
+  });
+
+  test('current-price lookup returns null price when no effective price exists', async () => {
+    mockViewer([{ prodcode: 'AD0001', current_price: null, current_price_effdate: null }]);
+    const response = await request(app).get('/api/products/AD0001/current-price').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(response.body.product.current_price).toBeNull();
+  });
+
+  test('current-price lookup rejects invalid product codes', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] })
+      .mockResolvedValueOnce({ rows: [{ module_name: 'Product', can_view: true }] });
+    const response = await request(app).get('/api/products/INVALID7/current-price').set('x-user-id', '1');
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('current-price lookup hides deleted and missing products', async () => {
+    mockViewer([]);
+    const response = await request(app).get('/api/products/AD0001/current-price').set('x-user-id', '1');
+    expect(response.status).toBe(404);
+    expect(pool.query).toHaveBeenCalledTimes(3);
+  });
+
+  test('current-price lookup allows superadmins', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] })
+      .mockResolvedValueOnce({ rows: [{ prodcode: 'AD0001', current_price: '20.00', current_price_effdate: '2026-10-01' }] });
+    const response = await request(app).get('/api/products/AD0001/current-price').set('x-user-id', '1');
+    expect(response.status).toBe(200);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+});
