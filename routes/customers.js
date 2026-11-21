@@ -73,13 +73,14 @@ router.get(
 function validateCustomer(body, creating) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return 'Invalid customer data.';
   const { custno, custname, address, payterm } = body;
+  if (address != null && typeof address !== 'string') return 'Address must be text.';
   if (creating && (typeof custno !== 'string' || !/^[A-Za-z0-9_-]{1,20}$/.test(custno.trim()))) {
     return 'Customer number must be 1–20 letters, numbers, underscores, or hyphens.';
   }
   if (typeof custname !== 'string' || !custname.trim() || custname.trim().length > 150) {
     return 'Customer name must be 1–150 characters.';
   }
-  if (address != null && (typeof address !== 'string' || address.length > 2000)) {
+  if (address != null && (typeof address !== 'string' || address.trim().length > 2000)) {
     return 'Address must be 2000 characters or fewer.';
   }
   if (typeof payterm !== 'string' || !VALID_PAYMENT_TERMS.includes(payterm)) {
@@ -141,4 +142,5 @@ router.put(
     }
   }
 );
+
 module.exports = router;

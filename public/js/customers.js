@@ -308,7 +308,7 @@
     document.getElementById('customer-address').value = customer?.address || '';
     document.getElementById('customer-term').value = customer?.payterm || 'COD';
     document.getElementById('customer-editor').classList.remove('hidden');
-    number.focus();
+    (customer ? document.getElementById('customer-name') : number).focus();
   }
 
   function closeCustomerEditor() {
@@ -335,7 +335,9 @@
       });
       closeCustomerEditor();
       await loadCustomers();
-      showCustomerMessage(editing ? 'Customer updated successfully.' : 'Customer created successfully.', 'success');
+      if (!document.getElementById('customer-table-body').textContent.includes('Unable to retrieve')) {
+        showCustomerMessage(editing ? 'Customer updated successfully.' : 'Customer created successfully.', 'success');
+      }
     } catch (error) {
       showCustomerMessage(error.status === 403 ? 'Access denied: insufficient Customer permissions.' : error.message, 'error');
     } finally {
@@ -368,9 +370,12 @@
       placeholderPanel.classList.toggle('hidden', isCustomerModule);
     }
 
-    document.getElementById('customer-add').classList.toggle('hidden', !getModulePermission('Customer').can_create);
+    document.getElementById('customer-add').classList.toggle('hidden', !isCustomerModule || !getModulePermission('Customer').can_create);
     if (isCustomerModule && !wasVisible) loadCustomers();
-    if (!isCustomerModule) closeCustomerEditor();
+    if (!isCustomerModule) {
+      requestSequence += 1;
+      closeCustomerEditor();
+    }
     wasVisible = isCustomerModule;
   }
 

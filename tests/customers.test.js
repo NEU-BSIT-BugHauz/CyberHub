@@ -328,3 +328,41 @@ describe('S2-DEV-02 customer create and edit', () => {
     expect(response.status).toBe(403);
   });
 });
+
+
+describe('S2-DEV-02 additional validation and authorization', () => {
+  beforeEach(() => jest.resetAllMocks());
+
+  test('rejects missing customer name before inserting', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] });
+    const response = await request(app).post('/api/customers').set('x-user-id', '1')
+      .send({ custno: 'CUST003', payterm: 'COD' });
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects invalid customer number before inserting', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] });
+    const response = await request(app).post('/api/customers').set('x-user-id', '1')
+      .send(createCustomer({ custno: 'bad number!' }));
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects non-string address before inserting', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser({ role: 'superadmin' })] });
+    const response = await request(app).post('/api/customers').set('x-user-id', '1')
+      .send(createCustomer({ address: 42 }));
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects unauthenticated create and edit', async () => {
+    const create = await request(app).post('/api/customers').send(createCustomer());
+    const edit = await request(app).put('/api/customers/CUST001')
+      .send({ custname: 'Updated', payterm: 'COD' });
+    expect(create.status).toBe(401);
+    expect(edit.status).toBe(401);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+});
