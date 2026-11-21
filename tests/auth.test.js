@@ -244,13 +244,19 @@ describe('CyberHub authentication API', () => {
     test('logs in an active user and creates a session', async () => {
       const passwordHash = await createPasswordHash('Password123');
 
-      pool.query.mockResolvedValueOnce({
-        rows: [
-          createActiveUser({
-            password_hash: passwordHash,
-          }),
-        ],
-      });
+      pool.query
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              password_hash: passwordHash,
+            }),
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser(),
+          ],
+        });
 
       const agent = request.agent(app);
 
@@ -317,19 +323,137 @@ describe('CyberHub authentication API', () => {
         .get('/api/auth/me');
 
       expect(response.status).toBe(401);
+      expect(pool.query).not.toHaveBeenCalled();
+    });
+
+    test('rejects a session when the account is blocked after login', async () => {
+      const passwordHash = await createPasswordHash('Password123');
+
+      pool.query
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              password_hash: passwordHash,
+            }),
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [],
+        });
+
+      const agent = request.agent(app);
+
+      const loginResponse = await agent
+        .post('/api/auth/login')
+        .send({
+          email: 'john@example.com',
+          password: 'Password123',
+        });
+
+      expect(loginResponse.status).toBe(200);
+
+      const meResponse = await agent.get('/api/auth/me');
+
+      expect(meResponse.status).toBe(401);
+      expect(meResponse.body.error).toMatch(/session is no longer valid/i);
+
+      // The invalid session should have been destroyed.
+      const secondMeResponse = await agent.get('/api/auth/me');
+
+      expect(secondMeResponse.status).toBe(401);
+      expect(pool.query).toHaveBeenCalledTimes(2);
+    });
+
+    test('rejects a session when the employee is no longer eligible', async () => {
+      const passwordHash = await createPasswordHash('Password123');
+
+      pool.query
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              password_hash: passwordHash,
+            }),
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [],
+        });
+
+      const agent = request.agent(app);
+
+      const loginResponse = await agent
+        .post('/api/auth/login')
+        .send({
+          email: 'john@example.com',
+          password: 'Password123',
+        });
+
+      expect(loginResponse.status).toBe(200);
+
+      const meResponse = await agent.get('/api/auth/me');
+
+      expect(meResponse.status).toBe(401);
+      expect(meResponse.body.error).toMatch(/session is no longer valid/i);
+    });
+
+    test('returns current account information instead of stale session data', async () => {
+      const passwordHash = await createPasswordHash('Password123');
+
+      pool.query
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              password_hash: passwordHash,
+              role: 'user',
+            }),
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              email: 'updated@example.com',
+              role: 'admin',
+            }),
+          ],
+        });
+
+      const agent = request.agent(app);
+
+      const loginResponse = await agent
+        .post('/api/auth/login')
+        .send({
+          email: 'john@example.com',
+          password: 'Password123',
+        });
+
+      expect(loginResponse.status).toBe(200);
+
+      const meResponse = await agent.get('/api/auth/me');
+
+      expect(meResponse.status).toBe(200);
+      expect(meResponse.body.user.email).toBe('updated@example.com');
+      expect(meResponse.body.user.role).toBe('admin');
     });
 
     test('rejects non-admin access to pending accounts', async () => {
       const passwordHash = await createPasswordHash('Password123');
 
-      pool.query.mockResolvedValueOnce({
-        rows: [
-          createActiveUser({
-            password_hash: passwordHash,
-            role: 'user',
-          }),
-        ],
-      });
+      pool.query
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              password_hash: passwordHash,
+              role: 'user',
+            }),
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              role: 'user',
+            }),
+          ],
+        });
 
       const agent = request.agent(app);
 
@@ -343,6 +467,45 @@ describe('CyberHub authentication API', () => {
       const response = await agent.get('/api/auth/pending');
 
       expect(response.status).toBe(403);
+      expect(pool.query).toHaveBeenCalledTimes(2);
+    });
+
+    test('rejects an administrator whose role was downgraded after login', async () => {
+      const passwordHash = await createPasswordHash('Password123');
+
+      pool.query
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              password_hash: passwordHash,
+              role: 'admin',
+            }),
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              role: 'user',
+            }),
+          ],
+        });
+
+      const agent = request.agent(app);
+
+      const loginResponse = await agent
+        .post('/api/auth/login')
+        .send({
+          email: 'john@example.com',
+          password: 'Password123',
+        });
+
+      expect(loginResponse.status).toBe(200);
+
+      const response = await agent.get('/api/auth/pending');
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toMatch(/administrator access required/i);
+      expect(pool.query).toHaveBeenCalledTimes(2);
     });
 
     test('allows an administrator to retrieve pending accounts', async () => {
@@ -353,6 +516,13 @@ describe('CyberHub authentication API', () => {
           rows: [
             createActiveUser({
               password_hash: passwordHash,
+              role: 'admin',
+            }),
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
               role: 'admin',
             }),
           ],
@@ -393,13 +563,19 @@ describe('CyberHub authentication API', () => {
     test('successfully logs out and invalidates the session', async () => {
       const passwordHash = await createPasswordHash('Password123');
 
-      pool.query.mockResolvedValueOnce({
-        rows: [
-          createActiveUser({
-            password_hash: passwordHash,
-          }),
-        ],
-      });
+      pool.query
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser({
+              password_hash: passwordHash,
+            }),
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            createActiveUser(),
+          ],
+        });
 
       const agent = request.agent(app);
 
@@ -412,8 +588,7 @@ describe('CyberHub authentication API', () => {
 
       expect(loginResponse.status).toBe(200);
 
-      const logoutResponse = await agent
-        .post('/api/auth/logout');
+      const logoutResponse = await agent.post('/api/auth/logout');
 
       expect(logoutResponse.status).toBe(200);
       expect(logoutResponse.body.message).toBe('Logout successful.');

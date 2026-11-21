@@ -76,6 +76,10 @@ app.use('/api/auth', authRoutes);
 const passwordResetRoutes = require('./routes/passwordReset');
 app.use('/api/auth', passwordResetRoutes);
 
+// User management routes
+const usersRoutes = require('./routes/users');
+app.use('/api/users', usersRoutes);
+
 // Global error handler
 app.use((err, _req, res, _next) => {
   console.error(err);

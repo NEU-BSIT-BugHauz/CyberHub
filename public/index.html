@@ -1,29 +1,440 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CyberHub — Scaffold</title>
-  <link rel="stylesheet" href="/css/styles.css" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>CyberHub | User Management</title>
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <main class="card">
-    <h1>Project Scaffold Ready</h1>
-    <p class="muted">Sprint 1 • S1-DEV-01 baseline app skeleton and PostgreSQL check.</p>
-    <div id="db-status" class="status-badge">Checking database connection...</div>
+
+  <!-- LOGIN VIEW -->
+  <main id="login-view" class="login-wrapper">
+    <section class="card login-card">
+      <div class="brand">
+        <div class="brand-mark">CH</div>
+        <div>
+          <h1>CyberHub</h1>
+          <p class="muted">Account Management Portal</p>
+        </div>
+      </div>
+
+      <div class="section-heading">
+        <h2>Welcome back</h2>
+        <p class="muted">Sign in with your administrator account.</p>
+      </div>
+
+      <form id="login-form">
+        <label for="login-email">Email address</label>
+        <input
+          id="login-email"
+          name="email"
+          type="email"
+          autocomplete="username"
+          placeholder="you@example.com"
+          required
+        />
+
+        <label for="login-password">Password</label>
+        <input
+          id="login-password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Enter your password"
+          required
+        />
+
+        <button type="submit" class="btn btn-primary btn-full">
+          Sign in
+        </button>
+      </form>
+
+      <p id="login-message" class="message" role="alert"></p>
+
+      <button
+        id="show-forgot-password"
+        class="text-button"
+        type="button"
+      >
+        Forgot password?
+      </button>
+    </section>
   </main>
 
+  <!-- FORGOT PASSWORD VIEW -->
+  <main id="forgot-password-view" class="login-wrapper hidden">
+    <section class="card login-card">
+      <div class="brand">
+        <div class="brand-mark">CH</div>
+        <div>
+          <h1>CyberHub</h1>
+          <p class="muted">Account Management Portal</p>
+        </div>
+      </div>
+
+      <div class="section-heading">
+        <h2>Set or Reset Password</h2>
+        <p class="muted">
+          Enter your registered employee email address.
+          We'll send you a secure password link.
+        </p>
+      </div>
+
+      <form id="forgot-password-form">
+        <label for="forgot-email">Email address</label>
+        <input
+          id="forgot-email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          placeholder="you@example.com"
+          maxlength="190"
+          required
+        />
+
+        <button type="submit" class="btn btn-primary btn-full">
+          Send Reset Link
+        </button>
+      </form>
+
+      <p id="forgot-message" class="message" role="alert"></p>
+
+      <button
+        id="back-to-login"
+        class="text-button"
+        type="button"
+      >
+        Back to sign in
+      </button>
+    </section>
+  </main>
+
+  <!-- RESET PASSWORD VIEW -->
+  <main id="reset-password-view" class="login-wrapper hidden">
+    <section class="card login-card">
+      <div class="brand">
+        <div class="brand-mark">CH</div>
+        <div>
+          <h1>CyberHub</h1>
+          <p class="muted">Account Management Portal</p>
+        </div>
+      </div>
+
+      <div class="section-heading">
+        <h2>Choose a New Password</h2>
+        <p class="muted">
+          Enter and confirm your new account password.
+        </p>
+      </div>
+
+      <form id="reset-password-form">
+        <label for="new-password">New password</label>
+        <input
+          id="new-password"
+          name="password"
+          type="password"
+          minlength="8"
+          autocomplete="new-password"
+          placeholder="At least 8 characters"
+          required
+        />
+
+        <label for="confirm-password">Confirm new password</label>
+        <input
+          id="confirm-password"
+          name="confirmPassword"
+          type="password"
+          minlength="8"
+          autocomplete="new-password"
+          placeholder="Re-enter your password"
+          required
+        />
+
+        <button type="submit" class="btn btn-primary btn-full">
+          Save Password
+        </button>
+      </form>
+
+      <p id="reset-message" class="message" role="alert"></p>
+
+      <button
+        id="reset-back-to-login"
+        class="text-button"
+        type="button"
+      >
+        Back to sign in
+      </button>
+    </section>
+  </main>
+
+  <!-- USER MANAGEMENT DASHBOARD -->
+  <main id="dashboard-view" class="dashboard hidden">
+
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">CH</div>
+        <div>
+          <h1>CyberHub</h1>
+          <p class="muted">Administration Portal</p>
+        </div>
+      </div>
+
+      <div class="account-area">
+        <div class="account-info">
+          <strong id="current-user-name">Administrator</strong>
+          <span id="current-user-role" class="role-label">Admin</span>
+        </div>
+
+        <button
+          id="logout-button"
+          class="btn btn-outline"
+          type="button"
+        >
+          Sign out
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <section class="page-content">
+
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">ADMINISTRATION</p>
+          <h2>User Management</h2>
+          <p class="muted">
+            Create, update, and manage employee accounts.
+          </p>
+        </div>
+
+        <button
+          id="show-add-form"
+          class="btn btn-primary"
+          type="button"
+        >
+          + Add User
+        </button>
+      </div>
+
+      <div id="page-message" class="message" role="alert"></div>
+
+      <!-- ADD USER FORM -->
+      <section id="add-panel" class="panel form-panel hidden">
+        <div class="panel-heading">
+          <div>
+            <h3>Add User</h3>
+            <p class="muted">
+              Create an account for an eligible employee.
+            </p>
+          </div>
+
+          <button
+            class="icon-button"
+            type="button"
+            data-close="add-panel"
+            aria-label="Close add user form"
+          >&times;</button>
+        </div>
+
+        <form id="add-user-form" class="form-grid">
+
+          <div class="form-field">
+            <label for="add-empno">Employee number</label>
+            <input
+              id="add-empno"
+              name="empno"
+              type="text"
+              maxlength="5"
+              minlength="5"
+              pattern="[A-Za-z0-9]{5}"
+              placeholder="e.g. E1234"
+              required
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="add-email">Email address</label>
+            <input
+              id="add-email"
+              name="email"
+              type="email"
+              maxlength="190"
+              placeholder="employee@example.com"
+              required
+            />
+          </div>
+
+          <div
+            class="form-field role-field hidden"
+            id="add-role-field"
+          >
+            <label for="add-role">Account role</label>
+            <select id="add-role" name="role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit">
+              Create Account
+            </button>
+
+            <button
+              class="btn btn-outline"
+              type="button"
+              data-close="add-panel"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+
+        <p class="form-note">
+          New accounts are created without a password.
+          The employee must set their own password through
+          the password reset process.
+        </p>
+      </section>
+
+      <!-- EDIT USER FORM -->
+      <section id="edit-panel" class="panel form-panel hidden">
+        <div class="panel-heading">
+          <div>
+            <h3>Edit User</h3>
+            <p class="muted">
+              Update the selected account.
+            </p>
+          </div>
+
+          <button
+            class="icon-button"
+            type="button"
+            data-close="edit-panel"
+            aria-label="Close edit user form"
+          >&times;</button>
+        </div>
+
+        <form id="edit-user-form" class="form-grid">
+          <input id="edit-user-id" type="hidden" />
+
+          <div class="form-field">
+            <label for="edit-full-name">Employee name</label>
+            <input
+              id="edit-full-name"
+              type="text"
+              disabled
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="edit-empno">Employee number</label>
+            <input
+              id="edit-empno"
+              type="text"
+              disabled
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="edit-email">Email address</label>
+            <input
+              id="edit-email"
+              type="email"
+              maxlength="190"
+              required
+            />
+          </div>
+
+          <div
+            class="form-field role-field hidden"
+            id="edit-role-field"
+          >
+            <label for="edit-role">Account role</label>
+            <select id="edit-role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit">
+              Save Changes
+            </button>
+
+            <button
+              class="btn btn-outline"
+              type="button"
+              data-close="edit-panel"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- USER LIST -->
+      <section class="panel users-panel">
+        <div class="panel-heading users-heading">
+          <div>
+            <h3>Employee Accounts</h3>
+            <p class="muted">
+              <span id="user-count">0</span> manageable accounts
+            </p>
+          </div>
+
+          <div class="search-box">
+            <input
+              id="user-search"
+              type="search"
+              placeholder="Search name, email, or employee no."
+              aria-label="Search users"
+            />
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Password Setup</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody id="users-table-body">
+              <tr>
+                <td colspan="6" class="empty-state">
+                  Loading accounts...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p id="empty-search" class="empty-state hidden">
+          No accounts match your search.
+        </p>
+      </section>
+
+      <footer class="footer">
+        CyberHub Administration Portal
+      </footer>
+
+    </section>
+  </main>
+
+  <!-- JAVASCRIPT -->
   <script src="/js/api.js"></script>
-  <script>
-    (async () => {
-      const badge = document.getElementById('db-status');
-      try {
-        const health = await apiRequest('/api/health');
-        badge.textContent = `API & DB: ${health.db}`;
-      } catch (err) {
-        badge.textContent = `Error: ${err.message}`;
-      }
-    })();
-  </script>
+  <script src="/js/app.js"></script>
+
 </body>
 </html>
