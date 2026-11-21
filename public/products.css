@@ -74,3 +74,46 @@
   border-radius: 12px;
   background: var(--surface-light);
 }
+
+/* S2-DEV-05: Product create/edit controls */
+.product-editor {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.product-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.product-editor-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  color: var(--text);
+}
+
+.product-editor-grid input,
+.product-editor-grid select {
+  width: 100%;
+  padding: .65rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.product-editor-grid input[readonly] {
+  opacity: .75;
+  cursor: not-allowed;
+}
+
+.product-editor-actions {
+  display: flex;
+  gap: .6rem;
+  flex-wrap: wrap;
+}

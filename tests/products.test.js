@@ -228,8 +228,186 @@ describe('S2-DEV-04: Product List with Search and Filter', () => {
     expect(response.body.error).toMatch(/unavailable/i);
   });
 
-  test('does not implement Product write endpoints in list-only task', async () => {
-    const response = await request(app).post('/api/products').send({ prodcode: 'AD0002' });
+});
+
+describe('S2-DEV-05: Product Create and Edit', () => {
+  const validProduct = {
+    prodcode: 'AD0001',
+    description: 'Toshiba Canvio 1 TB',
+    unit: 'ea',
+  };
+
+  function mockActionPermission(action, options = {}) {
+    const { user = createUser(), rows = [] } = options;
+    pool.query.mockResolvedValueOnce({ rows: [user] });
+    if (user.role !== 'superadmin') {
+      pool.query.mockResolvedValueOnce({
+        rows: [{
+          module_name: 'Product',
+          can_view: false,
+          can_create: action === 'can_create',
+          can_edit: action === 'can_edit',
+          can_delete: false,
+        }],
+      });
+    }
+    if (rows !== null) pool.query.mockResolvedValueOnce({ rows });
+  }
+
+  beforeEach(() => jest.resetAllMocks());
+
+  test('creates a product with can_create, normalizes code and unit', async () => {
+    mockActionPermission('can_create', { rows: [createProduct()] });
+    const response = await request(app)
+      .post('/api/products')
+      .set('x-user-id', '1')
+      .send({ prodcode: 'ad0001', description: ' Toshiba Canvio 1 TB ', unit: 'EA' });
+
+    expect(response.status).toBe(201);
+    expect(response.body.product.prodcode).toBe('AD0001');
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('INSERT INTO product'),
+      ['AD0001', 'Toshiba Canvio 1 TB', 'ea']
+    );
+  });
+
+  test('edits a product with can_edit and requires it to be active', async () => {
+    mockActionPermission('can_edit', { rows: [createProduct({ description: 'New name', unit: 'pc' })] });
+    const response = await request(app)
+      .put('/api/products/AD0001')
+      .set('x-user-id', '1')
+      .send({ prodcode: 'AD0001', description: ' New name ', unit: 'pc' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.product.description).toBe('New name');
+    expect(pool.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('WHERE prodcode = $1 AND is_deleted = FALSE'),
+      ['AD0001', 'New name', 'pc']
+    );
+  });
+
+  test('rejects create without authentication', async () => {
+    const response = await request(app).post('/api/products').send(validProduct);
+    expect(response.status).toBe(401);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  test('rejects edit without authentication', async () => {
+    const response = await request(app).put('/api/products/AD0001').send(validProduct);
+    expect(response.status).toBe(401);
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  test('rejects create without Product can_create', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({ rows: [{ module_name: 'Product', can_view: true, can_create: false }] });
+    const response = await request(app).post('/api/products').set('x-user-id', '1').send(validProduct);
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('rejects edit without Product can_edit', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [createUser()] });
+    pool.query.mockResolvedValueOnce({ rows: [{ module_name: 'Product', can_view: true, can_edit: false }] });
+    const response = await request(app).put('/api/products/AD0001').set('x-user-id', '1').send(validProduct);
+    expect(response.status).toBe(403);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('superadmin can create without looking up permissions', async () => {
+    mockActionPermission('can_create', { user: createUser({ user_id: 99, role: 'superadmin' }), rows: [createProduct()] });
+    const response = await request(app).post('/api/products').set('x-user-id', '99').send(validProduct);
+    expect(response.status).toBe(201);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('superadmin can edit without looking up permissions', async () => {
+    mockActionPermission('can_edit', { user: createUser({ user_id: 99, role: 'superadmin' }), rows: [createProduct()] });
+    const response = await request(app).put('/api/products/AD0001').set('x-user-id', '99').send(validProduct);
+    expect(response.status).toBe(200);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('prevents editing product code', async () => {
+    mockActionPermission('can_edit', { rows: null });
+    const response = await request(app).put('/api/products/AD0001').set('x-user-id', '1')
+      .send({ ...validProduct, prodcode: 'AD0002' });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/cannot be changed/i);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('rejects malformed route product code before update', async () => {
+    mockActionPermission('can_edit', { rows: null });
+    const response = await request(app).put('/api/products/TOOLONG1').set('x-user-id', '1')
+      .send(validProduct);
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test.each([
+    [{ ...validProduct, prodcode: '' }, /code/i],
+    [{ ...validProduct, prodcode: 'TOOLONG' }, /code/i],
+    [{ ...validProduct, prodcode: 'A 001' }, /code/i],
+    [{ ...validProduct, prodcode: 123 }, /code/i],
+    [{ ...validProduct, description: '' }, /description/i],
+    [{ ...validProduct, description: 'A'.repeat(31) }, /description/i],
+    [{ ...validProduct, description: 20 }, /description/i],
+    [{ ...validProduct, unit: 'box' }, /unit/i],
+    [{ ...validProduct, unit: [] }, /unit/i],
+    [[], /data/i],
+    [null, /data/i],
+  ])('rejects invalid create payload %#', async (payload, expectedError) => {
+    mockActionPermission('can_create', { rows: null });
+    const response = await request(app).post('/api/products').set('x-user-id', '1').send(payload);
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(expectedError);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('accepts valid uppercase units and trims description on edit', async () => {
+    mockActionPermission('can_edit', { rows: [createProduct({ description: 'New', unit: 'ltr' })] });
+    const response = await request(app).put('/api/products/ad0001').set('x-user-id', '1')
+      .send({ description: ' New ', unit: 'LTR' });
+    expect(response.status).toBe(200);
+    expect(pool.query).toHaveBeenLastCalledWith(expect.any(String), ['AD0001', 'New', 'ltr']);
+  });
+
+  test('returns 409 for duplicate product code', async () => {
+    mockActionPermission('can_create', { rows: null });
+    const error = new Error('duplicate key');
+    error.code = '23505';
+    pool.query.mockRejectedValueOnce(error);
+    const response = await request(app).post('/api/products').set('x-user-id', '1').send(validProduct);
+    expect(response.status).toBe(409);
+    expect(response.body.error).toMatch(/already exists/i);
+  });
+
+  test('returns 404 for a missing or soft-deleted product on edit', async () => {
+    mockActionPermission('can_edit', { rows: [] });
+    const response = await request(app).put('/api/products/AD0001').set('x-user-id', '1')
+      .send(validProduct);
+    expect(response.status).toBe(404);
+  });
+
+  test('rejects invalid edit body without querying for updates', async () => {
+    mockActionPermission('can_edit', { rows: null });
+    const response = await request(app).put('/api/products/AD0001').set('x-user-id', '1')
+      .send({ description: '', unit: 'ea' });
+    expect(response.status).toBe(400);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('forwards unexpected create database errors', async () => {
+    mockActionPermission('can_create', { rows: null });
+    pool.query.mockRejectedValueOnce(new Error('DB unavailable'));
+    const response = await request(app).post('/api/products').set('x-user-id', '1').send(validProduct);
+    expect(response.status).toBe(500);
+    expect(response.body.error).toMatch(/unavailable/i);
+  });
+
+  test('does not implement Product delete yet', async () => {
+    const response = await request(app).delete('/api/products/AD0001').set('x-user-id', '1');
     expect(response.status).toBe(404);
     expect(pool.query).not.toHaveBeenCalled();
   });
