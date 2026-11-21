@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f172a" />
-  <title>CyberHub | User Management</title>
+  <title>CyberHub | Management Portal</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -17,13 +17,13 @@
         <div class="brand-mark">CH</div>
         <div>
           <h1>CyberHub</h1>
-          <p class="muted">Account Management Portal</p>
+          <p class="muted">Management Portal</p>
         </div>
       </div>
 
       <div class="section-heading">
         <h2>Welcome back</h2>
-        <p class="muted">Sign in with your administrator account.</p>
+        <p class="muted">Sign in to access your CyberHub account.</p>
       </div>
 
       <form id="login-form">
@@ -71,7 +71,7 @@
         <div class="brand-mark">CH</div>
         <div>
           <h1>CyberHub</h1>
-          <p class="muted">Account Management Portal</p>
+          <p class="muted">Management Portal</p>
         </div>
       </div>
 
@@ -119,7 +119,7 @@
         <div class="brand-mark">CH</div>
         <div>
           <h1>CyberHub</h1>
-          <p class="muted">Account Management Portal</p>
+          <p class="muted">Management Portal</p>
         </div>
       </div>
 
@@ -170,7 +170,7 @@
     </section>
   </main>
 
-  <!-- USER MANAGEMENT DASHBOARD -->
+  <!-- MAIN DASHBOARD -->
   <main id="dashboard-view" class="dashboard hidden">
 
     <!-- HEADER -->
@@ -179,14 +179,14 @@
         <div class="brand-mark">CH</div>
         <div>
           <h1>CyberHub</h1>
-          <p class="muted">Administration Portal</p>
+          <p class="muted">Management Portal</p>
         </div>
       </div>
 
       <div class="account-area">
         <div class="account-info">
-          <strong id="current-user-name">Administrator</strong>
-          <span id="current-user-role" class="role-label">Admin</span>
+          <strong id="current-user-name">User</strong>
+          <span id="current-user-role" class="role-label">User</span>
         </div>
 
         <button
@@ -199,237 +199,641 @@
       </div>
     </header>
 
-    <!-- MAIN CONTENT -->
-    <section class="page-content">
+    <!-- DASHBOARD LAYOUT -->
+    <div class="dashboard-layout">
 
-      <div class="page-heading">
-        <div>
-          <p class="eyebrow">ADMINISTRATION</p>
-          <h2>User Management</h2>
-          <p class="muted">
-            Create, update, and manage employee accounts.
-          </p>
-        </div>
+      <!-- SIDEBAR NAVIGATION -->
+      <aside class="sidebar" aria-label="Main navigation">
+        <p class="sidebar-heading">WORKSPACE</p>
 
-        <button
-          id="show-add-form"
-          class="btn btn-primary"
-          type="button"
-        >
-          + Add User
-        </button>
-      </div>
+        <nav class="sidebar-nav">
+          <button
+            type="button"
+            class="nav-link active"
+            data-view="overview"
+          >
+            <span class="nav-icon">⌂</span>
+            Dashboard
+          </button>
 
-      <div id="page-message" class="message" role="alert"></div>
+          <div class="sidebar-divider"></div>
 
-      <!-- ADD USER FORM -->
-      <section id="add-panel" class="panel form-panel hidden">
-        <div class="panel-heading">
-          <div>
-            <h3>Add User</h3>
-            <p class="muted">
-              Create an account for an eligible employee.
-            </p>
-          </div>
+          <p class="sidebar-heading">MODULES</p>
 
           <button
-            class="icon-button"
             type="button"
-            data-close="add-panel"
-            aria-label="Close add user form"
-          >&times;</button>
-        </div>
-
-        <form id="add-user-form" class="form-grid">
-
-          <div class="form-field">
-            <label for="add-empno">Employee number</label>
-            <input
-              id="add-empno"
-              name="empno"
-              type="text"
-              maxlength="5"
-              minlength="5"
-              pattern="[A-Za-z0-9]{5}"
-              placeholder="e.g. E1234"
-              required
-            />
-          </div>
-
-          <div class="form-field">
-            <label for="add-email">Email address</label>
-            <input
-              id="add-email"
-              name="email"
-              type="email"
-              maxlength="190"
-              placeholder="employee@example.com"
-              required
-            />
-          </div>
-
-          <div
-            class="form-field role-field hidden"
-            id="add-role-field"
+            class="nav-link module-link hidden"
+            data-view="module"
+            data-module="Customer"
+            data-module-label="Customer"
           >
-            <label for="add-role">Account role</label>
-            <select id="add-role" name="role">
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-
-          <div class="form-actions">
-            <button class="btn btn-primary" type="submit">
-              Create Account
-            </button>
-
-            <button
-              class="btn btn-outline"
-              type="button"
-              data-close="add-panel"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-
-        <p class="form-note">
-          New accounts are created without a password.
-          The employee must set their own password through
-          the password reset process.
-        </p>
-      </section>
-
-      <!-- EDIT USER FORM -->
-      <section id="edit-panel" class="panel form-panel hidden">
-        <div class="panel-heading">
-          <div>
-            <h3>Edit User</h3>
-            <p class="muted">
-              Update the selected account.
-            </p>
-          </div>
+            <span class="nav-icon">♙</span>
+            Customer
+          </button>
 
           <button
-            class="icon-button"
             type="button"
-            data-close="edit-panel"
-            aria-label="Close edit user form"
-          >&times;</button>
-        </div>
-
-        <form id="edit-user-form" class="form-grid">
-          <input id="edit-user-id" type="hidden" />
-
-          <div class="form-field">
-            <label for="edit-full-name">Employee name</label>
-            <input
-              id="edit-full-name"
-              type="text"
-              disabled
-            />
-          </div>
-
-          <div class="form-field">
-            <label for="edit-empno">Employee number</label>
-            <input
-              id="edit-empno"
-              type="text"
-              disabled
-            />
-          </div>
-
-          <div class="form-field">
-            <label for="edit-email">Email address</label>
-            <input
-              id="edit-email"
-              type="email"
-              maxlength="190"
-              required
-            />
-          </div>
-
-          <div
-            class="form-field role-field hidden"
-            id="edit-role-field"
+            class="nav-link module-link hidden"
+            data-view="module"
+            data-module="Product"
+            data-module-label="Product"
           >
-            <label for="edit-role">Account role</label>
-            <select id="edit-role">
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
+            <span class="nav-icon">▦</span>
+            Product
+          </button>
+
+          <button
+            type="button"
+            class="nav-link module-link hidden"
+            data-view="module"
+            data-module="Human Resources"
+            data-module-label="Human Resources"
+          >
+            <span class="nav-icon">♧</span>
+            Human Resources
+          </button>
+
+          <button
+            type="button"
+            class="nav-link module-link hidden"
+            data-view="module"
+            data-module="Sales"
+            data-module-label="Sales"
+          >
+            <span class="nav-icon">↗</span>
+            Sales
+          </button>
+
+          <button
+            type="button"
+            class="nav-link module-link hidden"
+            data-view="module"
+            data-module="Reports"
+            data-module-label="Reports"
+          >
+            <span class="nav-icon">▤</span>
+            Reports
+          </button>
+
+          <div class="sidebar-divider"></div>
+
+          <p class="sidebar-heading">ADMINISTRATION</p>
+
+          <button
+            id="user-management-nav"
+            type="button"
+            class="nav-link hidden"
+            data-view="user-management"
+          >
+            <span class="nav-icon">♧</span>
+            User Management
+          </button>
+
+          <button
+            id="permissions-nav"
+            type="button"
+            class="nav-link hidden"
+            data-view="permissions"
+          >
+            <span class="nav-icon">⚙</span>
+            Rights & Permissions
+          </button>
+
+          <button
+            id="superadmin-nav"
+            type="button"
+            class="nav-link hidden"
+            data-view="superadmin"
+          >
+            <span class="nav-icon">◆</span>
+            Superadmin Controls
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span class="sidebar-status"></span>
+          CyberHub Workspace
+        </div>
+      </aside>
+
+      <!-- MAIN PAGE CONTENT -->
+      <section class="main-content">
+
+        <div id="page-message" class="message" role="alert"></div>
+
+        <!-- DASHBOARD OVERVIEW -->
+        <section id="overview-view" class="content-view">
+
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">WORKSPACE</p>
+              <h2>Dashboard Overview</h2>
+              <p class="muted">
+                Welcome to your CyberHub workspace.
+              </p>
+            </div>
           </div>
 
-          <div class="form-actions">
-            <button class="btn btn-primary" type="submit">
-              Save Changes
-            </button>
+          <div class="welcome-panel panel">
+            <div>
+              <p class="eyebrow">WELCOME BACK</p>
+              <h2>Hello, <span id="overview-user-name">User</span></h2>
+              <p class="muted">
+                Access your assigned modules and available workspace tools.
+              </p>
+            </div>
+
+            <div class="welcome-role">
+              <span class="muted">ACCOUNT ROLE</span>
+              <strong id="overview-user-role">User</strong>
+            </div>
+          </div>
+
+          <div class="overview-grid">
+            <article class="overview-card panel">
+              <span class="overview-card-label">YOUR ROLE</span>
+              <strong id="overview-role-card">User</strong>
+              <p class="muted">Current account access level</p>
+            </article>
+
+            <article class="overview-card panel">
+              <span class="overview-card-label">AVAILABLE MODULES</span>
+              <strong id="overview-module-count">0</strong>
+              <p class="muted">Modules assigned to your account</p>
+            </article>
+
+            <article class="overview-card panel">
+              <span class="overview-card-label">ACCOUNT STATUS</span>
+              <strong id="overview-account-status">Active</strong>
+              <p class="muted">Current account status</p>
+            </article>
+          </div>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Your Available Modules</h3>
+                <p class="muted">
+                  Select an assigned module to open its workspace.
+                </p>
+              </div>
+            </div>
+
+            <div id="overview-module-list" class="module-card-grid">
+              <p class="muted">Loading your assigned modules...</p>
+            </div>
+          </section>
+
+        </section>
+
+        <!-- MODULE WORKSPACE -->
+        <section id="module-view" class="content-view hidden">
+
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">WORKSPACE MODULE</p>
+              <h2 id="module-title">Module</h2>
+              <p id="module-description" class="muted">
+                Your assigned module workspace.
+              </p>
+            </div>
+          </div>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Module Access</h3>
+                <p class="muted">
+                  Your assigned permissions for this module.
+                </p>
+              </div>
+            </div>
+
+            <div id="module-permission-summary" class="permission-summary">
+              <p class="muted">Select a module to view your permissions.</p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Module Workspace</h3>
+                <p class="muted">
+                  Business functionality for this module will be integrated here.
+                </p>
+              </div>
+            </div>
+
+            <div class="module-placeholder">
+              <div class="module-placeholder-icon">▦</div>
+              <h3 id="module-placeholder-title">Module workspace</h3>
+              <p class="muted">
+                The module navigation and permission foundation are ready.
+                Actual business records and CRUD functionality are not yet
+                implemented.
+              </p>
+            </div>
+          </section>
+
+        </section>
+
+        <!-- USER MANAGEMENT -->
+        <section id="user-management-view" class="content-view hidden">
+
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">ADMINISTRATION</p>
+              <h2>User Management</h2>
+              <p class="muted">
+                Create, update, and manage eligible employee accounts.
+              </p>
+            </div>
 
             <button
-              class="btn btn-outline"
+              id="show-add-form"
+              class="btn btn-primary"
               type="button"
-              data-close="edit-panel"
             >
-              Cancel
+              + Add User
             </button>
           </div>
-        </form>
-      </section>
 
-      <!-- USER LIST -->
-      <section class="panel users-panel">
-        <div class="panel-heading users-heading">
-          <div>
-            <h3>Employee Accounts</h3>
-            <p class="muted">
-              <span id="user-count">0</span> manageable accounts
+          <!-- ADD USER FORM -->
+          <section id="add-panel" class="panel form-panel hidden">
+            <div class="panel-heading">
+              <div>
+                <h3>Add User</h3>
+                <p class="muted">
+                  Create an account for an eligible employee.
+                </p>
+              </div>
+
+              <button
+                class="icon-button"
+                type="button"
+                data-close="add-panel"
+                aria-label="Close add user form"
+              >&times;</button>
+            </div>
+
+            <form id="add-user-form" class="form-grid">
+
+              <div class="form-field">
+                <label for="add-empno">Employee number</label>
+                <input
+                  id="add-empno"
+                  name="empno"
+                  type="text"
+                  maxlength="5"
+                  minlength="5"
+                  pattern="[A-Za-z0-9]{5}"
+                  placeholder="e.g. E1234"
+                  required
+                />
+              </div>
+
+              <div class="form-field">
+                <label for="add-email">Email address</label>
+                <input
+                  id="add-email"
+                  name="email"
+                  type="email"
+                  maxlength="190"
+                  placeholder="employee@example.com"
+                  required
+                />
+              </div>
+
+              <div
+                class="form-field role-field hidden"
+                id="add-role-field"
+              >
+                <label for="add-role">Account role</label>
+                <select id="add-role" name="role">
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit">
+                  Create Account
+                </button>
+
+                <button
+                  class="btn btn-outline"
+                  type="button"
+                  data-close="add-panel"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+
+            <p class="form-note">
+              New accounts are created without a password.
+              The employee must set their own password through
+              the password reset process.
             </p>
+          </section>
+
+          <!-- EDIT USER FORM -->
+          <section id="edit-panel" class="panel form-panel hidden">
+            <div class="panel-heading">
+              <div>
+                <h3>Edit User</h3>
+                <p class="muted">
+                  Update the selected account.
+                </p>
+              </div>
+
+              <button
+                class="icon-button"
+                type="button"
+                data-close="edit-panel"
+                aria-label="Close edit user form"
+              >&times;</button>
+            </div>
+
+            <form id="edit-user-form" class="form-grid">
+              <input id="edit-user-id" type="hidden" />
+
+              <div class="form-field">
+                <label for="edit-full-name">Employee name</label>
+                <input
+                  id="edit-full-name"
+                  type="text"
+                  disabled
+                />
+              </div>
+
+              <div class="form-field">
+                <label for="edit-empno">Employee number</label>
+                <input
+                  id="edit-empno"
+                  type="text"
+                  disabled
+                />
+              </div>
+
+              <div class="form-field">
+                <label for="edit-email">Email address</label>
+                <input
+                  id="edit-email"
+                  type="email"
+                  maxlength="190"
+                  required
+                />
+              </div>
+
+              <div
+                class="form-field role-field hidden"
+                id="edit-role-field"
+              >
+                <label for="edit-role">Account role</label>
+                <select id="edit-role">
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit">
+                  Save Changes
+                </button>
+
+                <button
+                  class="btn btn-outline"
+                  type="button"
+                  data-close="edit-panel"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <!-- USER LIST -->
+          <section class="panel users-panel">
+            <div class="panel-heading users-heading">
+              <div>
+                <h3>Employee Accounts</h3>
+                <p class="muted">
+                  <span id="user-count">0</span> manageable accounts
+                </p>
+              </div>
+
+              <div class="search-box">
+                <input
+                  id="user-search"
+                  type="search"
+                  placeholder="Search name, email, or employee no."
+                  aria-label="Search users"
+                />
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Password Setup</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody id="users-table-body">
+                  <tr>
+                    <td colspan="6" class="empty-state">
+                      Loading accounts...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p id="empty-search" class="empty-state hidden">
+              No accounts match your search.
+            </p>
+          </section>
+
+        </section>
+
+        <!-- RIGHTS AND PERMISSIONS -->
+        <section id="permissions-view" class="content-view hidden">
+
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">SUPERADMIN ONLY</p>
+              <h2>Rights & Permissions</h2>
+              <p class="muted">
+                Assign module access and actions to Users and Admins.
+              </p>
+            </div>
           </div>
 
-          <div class="search-box">
-            <input
-              id="user-search"
-              type="search"
-              placeholder="Search name, email, or employee no."
-              aria-label="Search users"
-            />
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Select an Account</h3>
+                <p class="muted">
+                  Choose a User or Admin whose permissions you want to manage.
+                </p>
+              </div>
+            </div>
+
+            <div class="form-field permission-user-field">
+              <label for="permission-user-select">Employee account</label>
+              <select id="permission-user-select">
+                <option value="">Select an account</option>
+              </select>
+            </div>
+
+            <p id="permission-user-info" class="muted permission-user-info">
+              No account selected.
+            </p>
+
+            <div id="permission-editor" class="hidden">
+
+              <div class="panel-heading permission-table-heading">
+                <div>
+                  <h3>Module Access Rights</h3>
+                  <p class="muted">
+                    Enable or disable each action for the selected account.
+                  </p>
+                </div>
+              </div>
+
+              <div class="table-wrapper">
+                <table class="permission-table">
+                  <thead>
+                    <tr>
+                      <th>Module</th>
+                      <th>View</th>
+                      <th>Create</th>
+                      <th>Edit</th>
+                      <th>Delete</th>
+                    </tr>
+                  </thead>
+
+                  <tbody id="permission-table-body">
+                    <tr>
+                      <td colspan="5" class="empty-state">
+                        Select an account to load permissions.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="form-actions permission-actions">
+                <button
+                  id="save-permissions-button"
+                  class="btn btn-primary"
+                  type="button"
+                >
+                  Save Permissions
+                </button>
+
+                <button
+                  id="reset-permissions-button"
+                  class="btn btn-outline"
+                  type="button"
+                >
+                  Reset Changes
+                </button>
+              </div>
+
+              <p id="permission-message" class="message" role="alert"></p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3>Permission Policy</h3>
+            <p class="muted">
+              Superadmins have full access to every module. Regular Users
+              and Admins receive only the permissions assigned to them.
+              Missing permission assignments default to no access.
+            </p>
+          </section>
+
+        </section>
+
+        <!-- SUPERADMIN CONTROLS -->
+        <section id="superadmin-view" class="content-view hidden">
+
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">RESTRICTED AREA</p>
+              <h2>Superadmin Controls</h2>
+              <p class="muted">
+                Administrative access and system-level controls.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Password Setup</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Account Administration</h3>
+                <p class="muted">
+                  Manage regular User and Admin accounts through User Management.
+                </p>
+              </div>
+            </div>
 
-            <tbody id="users-table-body">
-              <tr>
-                <td colspan="6" class="empty-state">
-                  Loading accounts...
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+            <p class="muted">
+              Superadmins can create and manage Admin accounts, assign
+              module permissions, and access all modules.
+            </p>
 
-        <p id="empty-search" class="empty-state hidden">
-          No accounts match your search.
-        </p>
+            <p class="form-note">
+              Superadmin accounts are protected. They cannot be edited,
+              blocked, deleted, or assigned restricted permissions through
+              the account management interface.
+            </p>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Access Control</h3>
+                <p class="muted">
+                  Current platform access policy.
+                </p>
+              </div>
+            </div>
+
+            <div class="access-policy-list">
+              <div class="access-policy-item">
+                <strong>Users</strong>
+                <span>Assigned module permissions only</span>
+              </div>
+
+              <div class="access-policy-item">
+                <strong>Admins</strong>
+                <span>Assigned module permissions and User Management</span>
+              </div>
+
+              <div class="access-policy-item">
+                <strong>Superadmins</strong>
+                <span>All modules and administrative controls</span>
+              </div>
+            </div>
+          </section>
+
+        </section>
+
+        <footer class="footer">
+          CyberHub Management Portal
+        </footer>
+
       </section>
-
-      <footer class="footer">
-        CyberHub Administration Portal
-      </footer>
-
-    </section>
+    </div>
   </main>
 
   <!-- JAVASCRIPT -->

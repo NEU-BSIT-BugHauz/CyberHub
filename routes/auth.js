@@ -4,6 +4,15 @@ const { promisify } = require('util');
 const express = require('express');
 const { pool } = require('../config/db');
 
+const {
+  requireAuth,
+  requireAdmin,
+} = require('../middleware/auth');
+
+const {
+  getUserPermissions,
+} = require('../services/permissionService');
+
 const router = express.Router();
 const scrypt = promisify(crypto.scrypt);
 
@@ -40,87 +49,6 @@ function sanitizeUser(user) {
     status: user.status,
     must_set_password: user.must_set_password,
   };
-}
-
-function clearSession(req, res, next, status, message) {
-  req.session.destroy((err) => {
-    if (err) {
-      return next(err);
-    }
-
-    res.clearCookie('sid', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-    });
-
-    return res.status(status).json({
-      error: message,
-    });
-  });
-}
-
-async function requireAuth(req, res, next) {
-  if (!req.session || !req.session.user || !req.session.user.user_id) {
-    return res.status(401).json({
-      error: 'Authentication required.',
-    });
-  }
-
-  try {
-    const result = await pool.query(
-      `SELECT
-          u.id AS user_id,
-          u.empno,
-          u.full_name,
-          u.email,
-          u.role,
-          u.status,
-          u.must_set_password,
-          e.firstname,
-          e.lastname
-       FROM users u
-       JOIN employee e ON e.empno = u.empno
-       WHERE u.id = $1
-         AND u.status = 'active'
-         AND e.sepdate IS NULL
-         AND e.is_deleted = FALSE`,
-      [req.session.user.user_id]
-    );
-
-    const user = result.rows[0];
-
-    if (!user) {
-      return clearSession(
-        req,
-        res,
-        next,
-        401,
-        'Your session is no longer valid. Please log in again.'
-      );
-    }
-
-    // Always use current database values, never stale session privileges.
-    req.session.user = sanitizeUser(user);
-    req.currentUser = user;
-
-    return next();
-  } catch (err) {
-    return next(err);
-  }
-}
-
-function requireAdmin(req, res, next) {
-  if (
-    !req.currentUser ||
-    !['admin', 'superadmin'].includes(req.currentUser.role)
-  ) {
-    return res.status(403).json({
-      error: 'Administrator access required.',
-    });
-  }
-
-  next();
 }
 
 async function getEligibleEmployee(empno) {
@@ -267,13 +195,25 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-// CURRENT USER
-router.get('/me', requireAuth, (req, res) => {
-  return res.json({
-    user: req.currentUser
+// CURRENT USER AND MODULE PERMISSIONS
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    const user = req.currentUser
       ? sanitizeUser(req.currentUser)
-      : req.session.user,
-  });
+      : req.session.user;
+
+    const permissions = await getUserPermissions(
+      user.user_id,
+      user.role
+    );
+
+    return res.json({
+      user,
+      permissions,
+    });
+  } catch (err) {
+    return next(err);
+  }
 });
 
 // LOGOUT
