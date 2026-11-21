@@ -8,6 +8,13 @@
   let editingCode = null;
   let saving = false;
   let changingStatus = false;
+  let priceProductCode = null;
+  let priceProductName = '';
+  let priceRows = [];
+  let priceRequestSequence = 0;
+  let editingPriceDate = null;
+  let savingPrice = false;
+  let changingPriceStatus = false;
 
   const UNIT_LABELS = Object.freeze({
     pc: 'Piece (pc)',
@@ -134,6 +141,60 @@
           </tbody>
         </table>
       </div>
+
+      <section id="product-prices-panel" class="product-prices-panel hidden" aria-label="Product price history">
+        <div class="product-price-heading">
+          <div>
+            <h3 id="product-prices-title">Price History</h3>
+            <p class="muted">Prices by effective date. Earlier prices remain in history.</p>
+          </div>
+          <button id="product-prices-close" type="button" class="btn btn-outline">Close History</button>
+        </div>
+        <div class="product-price-toolbar">
+          <span id="product-price-count" class="product-count">0 prices</span>
+          <div id="product-price-status-field" class="hidden">
+            <label for="product-price-status">Price status</label>
+            <select id="product-price-status">
+              <option value="active">Active prices</option>
+              <option value="deleted">Deleted prices</option>
+            </select>
+          </div>
+          <button id="product-price-add" type="button" class="btn btn-primary hidden">Add Price</button>
+        </div>
+
+        <form id="product-price-editor" class="product-editor hidden">
+          <h4 id="product-price-editor-title">Add Price</h4>
+          <div class="product-editor-grid">
+            <label for="product-price-date">Effective date
+              <input id="product-price-date" type="date" required />
+            </label>
+            <label for="product-price-amount">Unit price
+              <input id="product-price-amount" type="number" min="0.01" max="99999999.99"
+                     step="0.01" placeholder="0.00" required />
+            </label>
+          </div>
+          <div class="product-editor-actions">
+            <button id="product-price-save" type="submit" class="btn btn-primary">Save Price</button>
+            <button id="product-price-cancel" type="button" class="btn btn-outline">Cancel</button>
+          </div>
+        </form>
+
+        <p id="product-price-message" class="message" role="status" aria-live="polite"></p>
+        <div class="table-wrapper">
+          <table class="product-table">
+            <thead>
+              <tr>
+                <th scope="col">Effective Date</th>
+                <th scope="col">Unit Price</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="product-prices-body">
+              <tr><td colspan="3" class="empty-state">Select an active product to view prices.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     `;
 
     placeholderPanel.appendChild(workspace);
@@ -169,12 +230,40 @@
       const product = productRows[index];
       const action = button.dataset.productAction;
       const rights = getProductRights();
-      if (action === 'edit' && rights.can_edit && !product.is_deleted) {
+      if (action === 'prices' && rights.can_view && !product.is_deleted) {
+        openProductPrices(product);
+      } else if (action === 'edit' && rights.can_edit && !product.is_deleted) {
         openProductEditor(product);
       } else if (action === 'delete' && rights.can_delete && !product.is_deleted) {
         changeProductStatus(product, 'delete', button);
       } else if (action === 'restore' && rights.can_delete && product.is_deleted) {
         changeProductStatus(product, 'restore', button);
+      }
+    });
+
+    document.getElementById('product-prices-close').addEventListener('click', closeProductPrices);
+    document.getElementById('product-price-status').addEventListener('change', () => {
+      closePriceEditor();
+      updatePriceActions();
+      loadProductPrices();
+    });
+    document.getElementById('product-price-add').addEventListener('click', () => openPriceEditor());
+    document.getElementById('product-price-cancel').addEventListener('click', closePriceEditor);
+    document.getElementById('product-price-editor').addEventListener('submit', savePrice);
+    document.getElementById('product-prices-body').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-price-action]');
+      if (!button || savingPrice || changingPriceStatus) return;
+      const index = Number(button.dataset.priceIndex);
+      if (!Number.isInteger(index) || !priceRows[index]) return;
+      const price = priceRows[index];
+      const action = button.dataset.priceAction;
+      const rights = getProductRights();
+      if (action === 'edit' && rights.can_edit && !price.is_deleted) {
+        openPriceEditor(price);
+      } else if (action === 'delete' && rights.can_delete && !price.is_deleted) {
+        changePriceStatus(price, 'delete', button);
+      } else if (action === 'restore' && rights.can_delete && price.is_deleted) {
+        changePriceStatus(price, 'restore', button);
       }
     });
 
@@ -197,6 +286,7 @@
     document.getElementById('product-add').classList.toggle(
       'hidden', !isProductModule || !rights.can_create || viewingDeleted
     );
+    updatePriceActions();
   }
 
   function renderProducts(products) {
@@ -222,6 +312,9 @@
           actions.push(`<button type="button" class="btn btn-outline" data-product-action="restore" data-product-index="${index}">Restore</button>`);
         }
       } else if (!product.is_deleted) {
+        if (rights.can_view) {
+          actions.push(`<button type="button" class="btn btn-outline" data-product-action="prices" data-product-index="${index}">Price History</button>`);
+        }
         if (rights.can_edit) {
           actions.push(`<button type="button" class="btn btn-outline" data-product-action="edit" data-product-index="${index}">Edit</button>`);
         }
@@ -243,6 +336,7 @@
 
   async function loadProducts() {
     if (!initialized) return false;
+    closeProductPrices();
 
     const body = document.getElementById('product-table-body');
     const button = document.getElementById('product-search-button');
@@ -397,6 +491,216 @@
     }
   }
 
+  // S2-DEV-07: Price history remains separate from product details.
+  function showPriceMessage(message, type = '') {
+    const element = document.getElementById('product-price-message');
+    if (!element) return;
+    element.textContent = message;
+    element.className = `message ${type}`.trim();
+  }
+
+  function priceDate(value) {
+    return String(value ?? '').slice(0, 10);
+  }
+
+  function formatPrice(value) {
+    const amount = Number(value);
+    return Number.isFinite(amount)
+      ? amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : String(value ?? '—');
+  }
+
+  function updatePriceActions() {
+    const panel = document.getElementById('product-prices-panel');
+    if (!panel) return;
+    const rights = getProductRights();
+    const status = document.getElementById('product-price-status');
+    document.getElementById('product-price-status-field').classList.toggle('hidden', !rights.can_delete);
+    if (!rights.can_delete) status.value = 'active';
+    const viewingDeleted = rights.can_delete && status.value === 'deleted';
+    document.getElementById('product-price-add').classList.toggle(
+      'hidden', !priceProductCode || !rights.can_create || viewingDeleted
+    );
+  }
+
+  function closePriceEditor() {
+    if (savingPrice) return;
+    editingPriceDate = null;
+    document.getElementById('product-price-editor')?.classList.add('hidden');
+  }
+
+  function closeProductPrices() {
+    priceRequestSequence += 1;
+    priceProductCode = null;
+    priceProductName = '';
+    priceRows = [];
+    closePriceEditor();
+    document.getElementById('product-prices-panel')?.classList.add('hidden');
+    updatePriceActions();
+  }
+
+  function openProductPrices(product) {
+    if (savingPrice || changingPriceStatus || !getProductRights().can_view || product.is_deleted) return;
+    priceRequestSequence += 1;
+    priceProductCode = product.prodcode;
+    priceProductName = product.description || '';
+    closePriceEditor();
+    document.getElementById('product-price-status').value = 'active';
+    document.getElementById('product-prices-title').textContent =
+      `Price History — ${priceProductCode}${priceProductName ? `: ${priceProductName}` : ''}`;
+    document.getElementById('product-prices-panel').classList.remove('hidden');
+    updatePriceActions();
+    loadProductPrices();
+    document.getElementById('product-prices-panel').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function renderProductPrices(prices) {
+    const body = document.getElementById('product-prices-body');
+    const rights = getProductRights();
+    const deleted = rights.can_delete && document.getElementById('product-price-status').value === 'deleted';
+    priceRows = prices;
+    document.getElementById('product-price-count').textContent =
+      `${prices.length} ${deleted ? 'deleted ' : ''}${prices.length === 1 ? 'price' : 'prices'}`;
+    if (!prices.length) {
+      body.innerHTML = '<tr><td colspan="3" class="empty-state">No price records for this product.</td></tr>';
+      return;
+    }
+    body.innerHTML = prices.map((price, index) => {
+      const actions = [];
+      if (deleted) {
+        if (rights.can_delete && price.is_deleted) {
+          actions.push(`<button type="button" class="btn btn-outline" data-price-action="restore" data-price-index="${index}">Restore</button>`);
+        }
+      } else if (!price.is_deleted) {
+        if (rights.can_edit) {
+          actions.push(`<button type="button" class="btn btn-outline" data-price-action="edit" data-price-index="${index}">Edit</button>`);
+        }
+        if (rights.can_delete) {
+          actions.push(`<button type="button" class="btn btn-outline product-delete-button" data-price-action="delete" data-price-index="${index}">Delete</button>`);
+        }
+      }
+      return `<tr>
+        <td>${escapeProductHtml(priceDate(price.effdate))}</td>
+        <td class="product-price-number">${escapeProductHtml(formatPrice(price.unitprice))}</td>
+        <td><div class="product-row-actions">${actions.join(' ') || '—'}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function loadProductPrices() {
+    if (!priceProductCode) return false;
+    const code = priceProductCode;
+    const reqId = ++priceRequestSequence;
+    const button = document.getElementById('product-price-add');
+    const body = document.getElementById('product-prices-body');
+    const rights = getProductRights();
+    const status = rights.can_delete ? document.getElementById('product-price-status').value : 'active';
+    const suffix = status === 'deleted' ? '?status=deleted' : '';
+    body.innerHTML = '<tr><td colspan="3" class="empty-state">Loading price history...</td></tr>';
+    button.disabled = true;
+    showPriceMessage('');
+    try {
+      const result = await apiRequest(`/api/products/${encodeURIComponent(code)}/prices${suffix}`);
+      if (reqId !== priceRequestSequence) return false;
+      if (!Array.isArray(result.prices)) throw new Error('Invalid price history returned by the server.');
+      renderProductPrices(result.prices);
+      return true;
+    } catch (error) {
+      if (reqId !== priceRequestSequence) return false;
+      body.innerHTML = '<tr><td colspan="3" class="empty-state">Unable to load price history.</td></tr>';
+      document.getElementById('product-price-count').textContent = '0 prices';
+      showPriceMessage(error.status === 403
+        ? 'Access denied: insufficient Product permissions.'
+        : error.status === 401
+          ? 'Your session has expired. Please sign in again.'
+          : (error.message || 'Unable to load price history.'), 'error');
+      return false;
+    } finally {
+      if (reqId === priceRequestSequence) button.disabled = false;
+    }
+  }
+
+  function openPriceEditor(price = null) {
+    const rights = getProductRights();
+    if (!priceProductCode || savingPrice || changingPriceStatus ||
+        (price ? (!rights.can_edit || price.is_deleted) : !rights.can_create)) return;
+    editingPriceDate = price ? priceDate(price.effdate) : null;
+    const dateInput = document.getElementById('product-price-date');
+    dateInput.value = editingPriceDate || '';
+    dateInput.disabled = Boolean(price);
+    document.getElementById('product-price-amount').value = price?.unitprice || '';
+    document.getElementById('product-price-editor-title').textContent = price ? 'Edit Price' : 'Add Price';
+    document.getElementById('product-price-editor').classList.remove('hidden');
+    showPriceMessage('');
+    (price ? document.getElementById('product-price-amount') : dateInput).focus();
+  }
+
+  async function savePrice(event) {
+    event.preventDefault();
+    const rights = getProductRights();
+    const editing = editingPriceDate !== null;
+    if (!priceProductCode || savingPrice || changingPriceStatus ||
+        (editing ? !rights.can_edit : !rights.can_create)) return;
+    const code = priceProductCode;
+    const date = editingPriceDate || document.getElementById('product-price-date').value;
+    const amount = document.getElementById('product-price-amount').value.trim();
+    const button = document.getElementById('product-price-save');
+    savingPrice = true;
+    button.disabled = true;
+    button.textContent = 'Saving...';
+    try {
+      const endpoint = `/api/products/${encodeURIComponent(code)}/prices`;
+      await apiRequest(editing ? `${endpoint}/${encodeURIComponent(date)}` : endpoint, {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(editing ? { unitprice: amount } : { effdate: date, unitprice: amount }),
+      });
+      savingPrice = false;
+      editingPriceDate = null;
+      document.getElementById('product-price-editor').classList.add('hidden');
+      if (priceProductCode === code && await loadProductPrices()) {
+        showPriceMessage(editing ? 'Price updated successfully.' : 'Price added successfully.', 'success');
+      }
+    } catch (error) {
+      showPriceMessage(error.status === 403
+        ? 'Access denied: insufficient Product permissions.'
+        : (error.message || 'Unable to save price.'), 'error');
+    } finally {
+      savingPrice = false;
+      button.disabled = false;
+      button.textContent = 'Save Price';
+    }
+  }
+
+  async function changePriceStatus(price, action, button) {
+    if (!priceProductCode || savingPrice || changingPriceStatus || !getProductRights().can_delete) return;
+    const deleting = action === 'delete';
+    if (deleting && !window.confirm(
+      `Soft-delete the price effective ${priceDate(price.effdate)} for ${priceProductCode}? You can restore it later.`
+    )) return;
+    const code = priceProductCode;
+    changingPriceStatus = true;
+    button.disabled = true;
+    try {
+      const endpoint = `/api/products/${encodeURIComponent(code)}/prices/${encodeURIComponent(priceDate(price.effdate))}`;
+      await apiRequest(deleting ? endpoint : `${endpoint}/restore`, {
+        method: deleting ? 'DELETE' : 'PATCH',
+      });
+      closePriceEditor();
+      if (priceProductCode === code && await loadProductPrices()) {
+        showPriceMessage(deleting
+          ? 'Price deleted. You can restore it under Deleted prices.'
+          : 'Price restored successfully.', 'success');
+      }
+    } catch (error) {
+      showPriceMessage(error.status === 403
+        ? 'Access denied: Product delete permission required.'
+        : (error.message || 'Unable to update price status.'), 'error');
+    } finally {
+      changingPriceStatus = false;
+      button.disabled = false;
+    }
+  }
+
   function updateProductWorkspace() {
     const moduleView = document.getElementById('module-view');
     const title = document.getElementById('module-title');
@@ -426,6 +730,7 @@
       searchButton.disabled = false;
       searchButton.textContent = 'Search';
       if (!saving) closeProductEditor();
+      closeProductPrices();
     }
 
     wasVisible = isProductModule;

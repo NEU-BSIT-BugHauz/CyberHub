@@ -135,3 +135,55 @@
   color: var(--danger);
   border-color: var(--danger);
 }
+
+/* S2-DEV-07: Effective-dated Product Price History */
+.product-prices-panel {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.product-price-heading,
+.product-price-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.product-price-heading h3,
+.product-price-heading p {
+  overflow-wrap: anywhere;
+}
+
+.product-price-toolbar {
+  margin: 1rem 0;
+}
+
+.product-price-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.88rem;
+}
+
+.product-price-toolbar select {
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 6px;
+}
+
+.product-price-number {
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.product-editor-grid input:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}

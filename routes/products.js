@@ -220,4 +220,187 @@ router.patch('/:prodcode/restore', requireAuth, requireDelete, validateProductCo
   }
 });
 
+
+// S2-DEV-07: Effective-dated price history.
+// In HopeDB, unquoted effDate/prodCode/unitPrice become effdate/prodcode/unitprice.
+// The (effdate, prodcode) primary key remains immutable and unique.
+const PRICE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const PRICE_AMOUNT_PATTERN = /^(?:0|[1-9]\d{0,7})(?:\.\d{1,2})?$/;
+
+function validPriceDate(value) {
+  if (typeof value !== 'string' || !PRICE_DATE_PATTERN.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function validatePriceDateParam(req, res, next) {
+  if (!validPriceDate(req.params.effdate)) {
+    return res.status(400).json({ error: 'Effective date must be a real date in YYYY-MM-DD format.' });
+  }
+  return next();
+}
+
+function validatedPriceAmount(value) {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const amount = String(value).trim();
+  if (!PRICE_AMOUNT_PATTERN.test(amount) || Number(amount) <= 0) return null;
+  return amount;
+}
+
+function requirePriceListStatus(req, res, next) {
+  const raw = req.query.status ?? 'active';
+  if (typeof raw !== 'string') {
+    return res.status(400).json({ error: 'Invalid price status. Use active or deleted.' });
+  }
+  const status = raw.trim().toLowerCase();
+  if (!['active', 'deleted'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid price status. Use active or deleted.' });
+  }
+  req.priceListStatus = status;
+  return status === 'deleted' ? requireDelete(req, res, next) : next();
+}
+
+// List the selected active product's historical prices, newest first.
+// The deleted-price view requires BOTH can_view and can_delete.
+router.get('/:prodcode/prices', requireAuth, requireView, validateProductCode,
+  requirePriceListStatus, async (req, res, next) => {
+    try {
+      const product = await pool.query(
+        'SELECT prodcode FROM product WHERE prodcode = $1 AND is_deleted = FALSE',
+        [req.productCode]
+      );
+      if (!product.rows.length) {
+        return res.status(404).json({ error: 'Active product not found.' });
+      }
+      const predicate = req.priceListStatus === 'deleted'
+        ? 'is_deleted = TRUE' : 'is_deleted = FALSE';
+      const result = await pool.query(
+        `SELECT TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate,
+                prodcode, unitprice, is_deleted, deleted_at, deleted_by
+         FROM pricehist
+         WHERE prodcode = $1 AND ${predicate}
+         ORDER BY effdate DESC`,
+        [req.productCode]
+      );
+      return res.json({ prices: result.rows });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+// A price date can be used only once for each product, including deleted dates.
+// Restoring an old date is safer than overwriting its historical identity.
+router.post('/:prodcode/prices', requireAuth, requireCreate, validateProductCode,
+  async (req, res, next) => {
+    try {
+      const { effdate, unitprice } = req.body || {};
+      if (!validPriceDate(effdate)) {
+        return res.status(400).json({ error: 'Effective date must be a real date in YYYY-MM-DD format.' });
+      }
+      const amount = validatedPriceAmount(unitprice);
+      if (amount === null) {
+        return res.status(400).json({ error: 'Unit price must be between 0.01 and 99999999.99, with at most 2 decimal places.' });
+      }
+      const result = await pool.query(
+        `INSERT INTO pricehist (prodcode, effdate, unitprice)
+         SELECT prodcode, $2::date, $3::numeric
+         FROM product
+         WHERE prodcode = $1 AND is_deleted = FALSE
+         RETURNING TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate,
+                   prodcode, unitprice, is_deleted, deleted_at, deleted_by`,
+        [req.productCode, effdate, amount]
+      );
+      if (!result.rows.length) {
+        return res.status(404).json({ error: 'Active product not found.' });
+      }
+      return res.status(201).json({ price: result.rows[0] });
+    } catch (error) {
+      if (error.code === '23505') {
+        return res.status(409).json({
+          error: 'A price for this product and date already exists. Restore it if it was deleted.',
+        });
+      }
+      return next(error);
+    }
+  }
+);
+
+// Effective dates and product codes cannot be changed through price edits.
+router.put('/:prodcode/prices/:effdate', requireAuth, requireEdit,
+  validateProductCode, validatePriceDateParam, async (req, res, next) => {
+    try {
+      if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+        return res.status(400).json({ error: 'Invalid price data.' });
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'effdate') &&
+          req.body.effdate !== req.params.effdate) {
+        return res.status(400).json({ error: 'Effective date cannot be changed.' });
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'prodcode') &&
+          (typeof req.body.prodcode !== 'string' || req.body.prodcode.trim().toUpperCase() !== req.productCode)) {
+        return res.status(400).json({ error: 'Product code cannot be changed.' });
+      }
+      const amount = validatedPriceAmount(req.body.unitprice);
+      if (amount === null) {
+        return res.status(400).json({ error: 'Unit price must be between 0.01 and 99999999.99, with at most 2 decimal places.' });
+      }
+      const result = await pool.query(
+        `UPDATE pricehist SET unitprice = $3::numeric
+         WHERE prodcode = $1 AND effdate = $2::date AND is_deleted = FALSE
+           AND EXISTS (SELECT 1 FROM product WHERE prodcode = $1 AND is_deleted = FALSE)
+         RETURNING TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate,
+                   prodcode, unitprice, is_deleted, deleted_at, deleted_by`,
+        [req.productCode, req.params.effdate, amount]
+      );
+      if (!result.rows.length) return res.status(404).json({ error: 'Active price not found.' });
+      return res.json({ price: result.rows[0] });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+// Non-destructive delete: existing HopeDB audit triggers can record the action.
+router.delete('/:prodcode/prices/:effdate', requireAuth, requireDelete,
+  validateProductCode, validatePriceDateParam, async (req, res, next) => {
+    try {
+      const result = await pool.query(
+        `UPDATE pricehist
+         SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = $3
+         WHERE prodcode = $1 AND effdate = $2::date AND is_deleted = FALSE
+           AND EXISTS (SELECT 1 FROM product WHERE prodcode = $1 AND is_deleted = FALSE)
+         RETURNING TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate,
+                   prodcode, unitprice, is_deleted, deleted_at, deleted_by`,
+        [req.productCode, req.params.effdate, req.currentUser.user_id]
+      );
+      if (!result.rows.length) return res.status(404).json({ error: 'Active price not found.' });
+      return res.json({ price: result.rows[0] });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+// Re-enable a previously deleted historical price without duplicating its date.
+router.patch('/:prodcode/prices/:effdate/restore', requireAuth, requireDelete,
+  validateProductCode, validatePriceDateParam, async (req, res, next) => {
+    try {
+      const result = await pool.query(
+        `UPDATE pricehist
+         SET is_deleted = FALSE, deleted_at = NULL, deleted_by = NULL
+         WHERE prodcode = $1 AND effdate = $2::date AND is_deleted = TRUE
+           AND EXISTS (SELECT 1 FROM product WHERE prodcode = $1 AND is_deleted = FALSE)
+         RETURNING TO_CHAR(effdate, 'YYYY-MM-DD') AS effdate,
+                   prodcode, unitprice, is_deleted, deleted_at, deleted_by`,
+        [req.productCode, req.params.effdate]
+      );
+      if (!result.rows.length) return res.status(404).json({ error: 'Deleted price not found.' });
+      return res.json({ price: result.rows[0] });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
 module.exports = router;
