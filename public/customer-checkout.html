@@ -8,7 +8,9 @@
   <link rel="stylesheet" href="/portal.css" />
   <link rel="stylesheet" href="/customer-auth.css" />
   <link rel="stylesheet" href="/customer-navigation.css" />
+  <link rel="stylesheet" href="/customer-shopping.css" />
   <script defer src="/js/customer-auth.js"></script>
+  <script defer src="/js/customer-shopping.js"></script>
 </head>
 <body class="portal-page" data-customer-page="checkout">
   <header class="portal-header">
@@ -27,16 +29,16 @@
     <p class="choice-kicker">ORDER CHECKOUT</p>
     <h1>Checkout</h1>
     <p id="customer-auth-message" class="customer-message" role="status" aria-live="polite"></p>
-    <p class="customer-intro">This section is part of your customer navigation, but its transactions are not enabled yet.</p>
-    <section class="customer-card" aria-label="Feature availability">
-      <span class="customer-status-tag">In development</span>
-      <h2 style="margin-top:18px">Checkout is coming soon</h2>
-      <p>Checkout is not available. This page cannot submit orders, charge payments, or reserve inventory.</p>
-      <div class="customer-button-row">
-        <a class="portal-button primary" href="/customer/dashboard">Back to Dashboard</a>
-        <a class="portal-button secondary" href="/customer/profile">View My Profile</a>
-      </div>
+    <p class="customer-intro">Review current prices before submitting your order. This creates a pending order; no card payment is collected.</p>
+    <p id="shopping-message" class="customer-shopping-message" role="status" aria-live="polite"></p>
+    <section id="shopping-content" class="customer-shopping-panel" aria-label="Checkout details">
+      <p>Loading…</p>
     </section>
+    <div class="customer-shopping-actions">
+      <button type="button" id="shopping-action" class="portal-button primary" disabled>Submit order</button>
+      <a class="portal-button secondary" href="/customer/cart">Edit cart</a>
+    </div>
+    <p class="customer-shopping-disclaimer">Submitting creates a pending order. No online payment is taken, no stock is reserved, and final pricing is rechecked by the server.</p>
   </main>
   <footer class="portal-footer">CyberHub · Customer Portal</footer>
 </body>

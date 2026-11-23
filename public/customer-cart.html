@@ -8,7 +8,9 @@
   <link rel="stylesheet" href="/portal.css" />
   <link rel="stylesheet" href="/customer-auth.css" />
   <link rel="stylesheet" href="/customer-navigation.css" />
+  <link rel="stylesheet" href="/customer-shopping.css" />
   <script defer src="/js/customer-auth.js"></script>
+  <script defer src="/js/customer-shopping.js"></script>
 </head>
 <body class="portal-page" data-customer-page="cart">
   <header class="portal-header">
@@ -27,16 +29,15 @@
     <p class="choice-kicker">SAVED CART</p>
     <h1>My Cart</h1>
     <p id="customer-auth-message" class="customer-message" role="status" aria-live="polite"></p>
-    <p class="customer-intro">This section is part of your customer navigation, but its transactions are not enabled yet.</p>
-    <section class="customer-card" aria-label="Feature availability">
-      <span class="customer-status-tag">In development</span>
-      <h2 style="margin-top:18px">My Cart is coming soon</h2>
-      <p>Your customer cart has not yet been implemented in the PostgreSQL version of CyberHub. No products are saved from this page.</p>
-      <div class="customer-button-row">
-        <a class="portal-button primary" href="/customer/dashboard">Back to Dashboard</a>
-        <a class="portal-button secondary" href="/customer/profile">View My Profile</a>
-      </div>
+    <p class="customer-intro">Your products are saved to your account. Totals use the currently effective price and may change until checkout.</p>
+    <p id="shopping-message" class="customer-shopping-message" role="status" aria-live="polite"></p>
+    <section id="shopping-content" class="customer-shopping-panel" aria-label="My Cart details">
+      <p>Loading…</p>
     </section>
+    <div class="customer-shopping-actions">
+      <button type="button" id="shopping-action" class="portal-button primary" disabled>Continue to checkout</button>
+      <a class="portal-button secondary" href="/customer/shop">Keep shopping</a>
+    </div>
   </main>
   <footer class="portal-footer">CyberHub · Customer Portal</footer>
 </body>

@@ -37,6 +37,36 @@
         card.appendChild(element('small', 'customer-shop-price-date',
           `Price effective ${product.current_price_effdate}`));
       }
+      if (hasPrice) {
+        const add = element('button', 'portal-button primary customer-shop-add', 'Add to cart');
+        add.type = 'button';
+        add.addEventListener('click', async () => {
+          add.disabled = true;
+          add.textContent = 'Adding…';
+          try {
+            const response = await fetch('/api/customer-shopping/cart/items', {
+              method: 'POST', credentials: 'same-origin', cache: 'no-store',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ prodcode: product.prodcode, quantity: 1 }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (response.status === 401) {
+              window.location.replace('/customer/login');
+              return;
+            }
+            if (!response.ok) throw new Error(result.error || 'Could not add product.');
+            message.className = 'customer-shop-message';
+            message.textContent = `${product.description || product.prodcode} added to cart. Open My Cart to review.`;
+          } catch (error) {
+            message.className = 'customer-shop-message error';
+            message.textContent = error.message || 'Could not add product.';
+          } finally {
+            add.disabled = false;
+            add.textContent = 'Add to cart';
+          }
+        });
+        card.appendChild(add);
+      }
       productsContainer.appendChild(card);
     }
   }

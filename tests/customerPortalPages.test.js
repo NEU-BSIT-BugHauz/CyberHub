@@ -79,11 +79,13 @@ describe('customer portal navigation and separate staff entry', () => {
     expect(result.text).toContain('/js/customer-shop.js');
   });
 
-  test('cart, checkout, and orders remain labeled in development', async () => {
+  test('cart, checkout and orders load customer shopping client', async () => {
     for (const page of ['cart', 'checkout', 'orders']) {
       const result = await request(app).get(`/customer/${page}`)
         .set('x-test-customer', 'yes').expect(200);
-      expect(result.text).toContain('In development');
+      expect(result.text).toContain('id="shopping-content"');
+      expect(result.text).toContain('/js/customer-shopping.js');
+      expect(result.text).toContain('/customer-shopping.css');
     }
   });
 
@@ -93,6 +95,8 @@ describe('customer portal navigation and separate staff entry', () => {
     await request(app).get('/customer-navigation.css').expect(200);
     await request(app).get('/customer-shop.css').expect(200);
     await request(app).get('/js/customer-shop.js').expect(200);
+    await request(app).get('/js/customer-shopping.js').expect(200);
+    await request(app).get('/customer-shopping.css').expect(200);
   });
 
   test('staff customer account management page remains available', async () => {
