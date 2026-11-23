@@ -4,15 +4,15 @@
 BEGIN;
 
 -- 1. Ensure explicit ON DELETE RESTRICT foreign keys exist on child tables
-DO $$
+DO $do$
 BEGIN
     -- pricehist -> product
     IF to_regclass('public.pricehist') IS NOT NULL
        AND NOT EXISTS (
            SELECT 1
            FROM pg_constraint
-           WHERE conrelid = 'pricehist'::regclass
-             AND confrelid = 'product'::regclass
+           WHERE conrelid = to_regclass('public.pricehist')
+             AND confrelid = to_regclass('public.product')
              AND contype = 'f'
        ) THEN
         ALTER TABLE pricehist
@@ -34,8 +34,8 @@ BEGIN
        AND NOT EXISTS (
            SELECT 1
            FROM pg_constraint
-           WHERE conrelid = 'sales'::regclass
-             AND confrelid = 'customer'::regclass
+           WHERE conrelid = to_regclass('public.sales')
+             AND confrelid = to_regclass('public.customer')
              AND contype = 'f'
        ) THEN
         ALTER TABLE sales
@@ -57,8 +57,8 @@ BEGIN
        AND NOT EXISTS (
            SELECT 1
            FROM pg_constraint
-           WHERE conrelid = 'salesdetail'::regclass
-             AND confrelid = 'product'::regclass
+           WHERE conrelid = to_regclass('public.salesdetail')
+             AND confrelid = to_regclass('public.product')
              AND contype = 'f'
        ) THEN
         ALTER TABLE salesdetail
@@ -67,7 +67,7 @@ BEGIN
             REFERENCES product (prodcode)
             ON DELETE RESTRICT;
     END IF;
-END $$;
+END $do$;
 
 -- 2. Diagnostic helper functions to inspect referencing child records
 CREATE OR REPLACE FUNCTION check_customer_child_records(p_custno VARCHAR)
@@ -77,7 +77,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 STABLE
-AS $$
+AS $fn$
 DECLARE
     v_count BIGINT := 0;
     v_has_is_deleted BOOLEAN := FALSE;
@@ -110,7 +110,7 @@ BEGIN
 
     RETURN;
 END;
-$$;
+$fn$;
 
 CREATE OR REPLACE FUNCTION check_product_child_records(
     p_prodcode VARCHAR,
@@ -122,7 +122,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 STABLE
-AS $$
+AS $fn$
 DECLARE
     v_count BIGINT := 0;
     v_has_is_deleted BOOLEAN := FALSE;
@@ -168,13 +168,13 @@ BEGIN
 
     RETURN;
 END;
-$$;
+$fn$;
 
 -- 3. Trigger functions guarding hard deletes and soft deletes when child records exist
 CREATE OR REPLACE FUNCTION prevent_customer_delete_with_children()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $$
+AS $fn$
 DECLARE
     v_child RECORD;
 BEGIN
@@ -197,12 +197,12 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$;
+$fn$;
 
 CREATE OR REPLACE FUNCTION prevent_product_delete_with_children()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $$
+AS $fn$
 DECLARE
     v_child RECORD;
 BEGIN
@@ -235,7 +235,7 @@ BEGIN
 
     RETURN NEW;
 END;
-$$;
+$fn$;
 
 DROP TRIGGER IF EXISTS trg_prevent_customer_delete_with_children ON customer;
 CREATE TRIGGER trg_prevent_customer_delete_with_children
