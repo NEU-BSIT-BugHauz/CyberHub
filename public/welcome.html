@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1224" />
+  <meta name="description" content="CyberHub — separate access for customers and employees." />
+  <title>CyberHub | Welcome</title>
+  <link rel="stylesheet" href="/portal.css" />
+</head>
+<body class="portal-page">
+  <header class="portal-header">
+    <a class="portal-brand" href="/" aria-label="CyberHub home">
+      <span class="brand-logo">CH</span>
+      <span>CyberHub <small>Connected workspace</small></span>
+    </a>
+    <nav class="top-navigation" aria-label="Portal navigation">
+      <a href="/customer/login">Customer portal</a>
+      <a href="/staff/login">Employee portal</a>
+    </nav>
+  </header>
+  <main class="portal-container">
+    <div class="hero-label">ONE PLATFORM, TWO EXPERIENCES</div>
+    <h1>Welcome to <span>CyberHub.</span></h1>
+    <p class="hero-description">Choose the portal that's right for you. Customers and employees have separate sign-in experiences and access to different tools.</p>
+    <section class="portal-choices" aria-label="Choose your portal">
+      <article class="portal-choice customer-choice">
+        <div class="choice-icon" aria-hidden="true">🛍</div>
+        <p class="choice-kicker">FOR CUSTOMERS</p>
+        <h2>Customer Portal</h2>
+        <p>Browse products, manage your profile, and track orders as customer features become available.</p>
+        <ul class="choice-features">
+          <li>Customer account and profile</li>
+          <li>Product browsing and pricing</li>
+          <li>Ordering and order history</li>
+        </ul>
+        <a class="portal-button primary" href="/customer/login">Customer Login <span aria-hidden="true">→</span></a>
+        <a class="portal-secondary" href="/customer/register">Customer registration preview</a>
+      </article>
+      <article class="portal-choice employee-choice">
+        <div class="choice-icon" aria-hidden="true">🛡</div>
+        <p class="choice-kicker">FOR STAFF</p>
+        <h2>Employee Portal</h2>
+        <p>Sign in with your employee account to access authorized management and administration tools.</p>
+        <ul class="choice-features">
+          <li>Superadmin and Admin workspaces</li>
+          <li>Customer and Product Management</li>
+          <li>Role-based module permissions</li>
+        </ul>
+        <a class="portal-button secondary" href="/staff/login">Employee Login <span aria-hidden="true">→</span></a>
+        <a class="portal-secondary" href="/staff/register">Employee registration</a>
+      </article>
+    </section>
+    <p class="portal-footnote">Employee access uses the existing CyberHub system. Customer authentication and shopping are planned for a separate, reviewed database integration.</p>
+  </main>
+  <footer class="portal-footer">CyberHub · Customer and Employee Portals</footer>
+</body>
+</html>
