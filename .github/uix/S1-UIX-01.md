@@ -3,7 +3,7 @@
 - **Task ID:** `S1-UIX-01`[cite: 5]
 - **Task Name:** Design system: colors, typography, core components[cite: 5]
 - **Assignee:** UI/UX Designer[cite: 5]
-- **Status:** In Progress[cite: 5]
+- **Status:** In Progressz`[cite: 5]
 - **Figma File Link:** `[https://www.figma.com/design/lh4I5nrLXfW2fF3RrMstXH/Custom-Login-page-and-Signup-page-UI--Community-?node-id=0-1&p=f&t=qeRECav5SLzn50bw-0]`
 - **Last Updated:** `2026-11-23`
 
