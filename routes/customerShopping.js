@@ -169,6 +169,11 @@ router.post('/checkout', async (req, res, next) => {
   if (typeof token !== 'string' || !UUID.test(token)) {
     return res.status(400).json({ error: 'A valid checkout request token is required.' });
   }
+  const deliveryAddress = typeof req.body?.delivery_address === 'string'
+    ? req.body.delivery_address.trim() : '';
+  if (deliveryAddress.length < 10 || deliveryAddress.length > 500) {
+    return res.status(400).json({ error: 'Delivery address must contain 10 to 500 characters.' });
+  }
   const id = req.shoppingCustomer.id;
   let client;
   let completed = false;
@@ -188,7 +193,7 @@ router.post('/checkout', async (req, res, next) => {
     }
 
     const alreadyPlaced = await client.query(
-      `SELECT id AS order_id, status, total_amount, created_at
+      `SELECT id AS order_id, status, total_amount, delivery_address, created_at
        FROM customer_web_orders WHERE customer_account_id = $1 AND checkout_token = $2`, [id, token]
     );
     if (alreadyPlaced.rows[0]) {
@@ -222,10 +227,10 @@ router.post('/checkout', async (req, res, next) => {
     }
 
     const created = await client.query(
-      `INSERT INTO customer_web_orders (customer_account_id, custno, checkout_token, total_amount)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id AS order_id, status, total_amount, created_at`,
-      [id, customer.rows[0].custno, token, centsToAmount(totalCents)]
+      `INSERT INTO customer_web_orders (customer_account_id, custno, checkout_token, total_amount, delivery_address)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id AS order_id, status, total_amount, delivery_address, created_at`,
+      [id, customer.rows[0].custno, token, centsToAmount(totalCents), deliveryAddress]
     );
     const order = created.rows[0];
     for (const item of cartSummary.items) {
@@ -252,7 +257,7 @@ router.post('/checkout', async (req, res, next) => {
 router.get('/orders', async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT id AS order_id, status, total_amount, created_at
+      `SELECT id AS order_id, status, total_amount, delivery_address, created_at
        FROM customer_web_orders WHERE customer_account_id = $1
        ORDER BY created_at DESC LIMIT 50`, [req.shoppingCustomer.id]
     );
@@ -267,7 +272,7 @@ router.get('/orders/:id', async (req, res, next) => {
   }
   try {
     const result = await pool.query(
-      `SELECT id AS order_id, status, total_amount, created_at
+      `SELECT id AS order_id, status, total_amount, delivery_address, created_at
        FROM customer_web_orders WHERE customer_account_id = $1 AND id = $2`,
       [req.shoppingCustomer.id, req.params.id]
     );

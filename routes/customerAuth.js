@@ -5,6 +5,7 @@ const { promisify } = require('util');
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
 const { pool } = require('../config/db');
+const { nextCustomerNumber } = require('../services/customerNumber');
 
 const router = express.Router();
 const scrypt = promisify(crypto.scrypt);
@@ -94,9 +95,9 @@ router.post('/register', customerAuthLimiter, async (req, res, next) => {
   let client;
   try {
     const passwordHash = await hashPassword(password);
-    const custno = `C${crypto.randomBytes(9).toString('hex').toUpperCase()}`; // 19 chars, max 20
     client = await pool.connect();
     await client.query('BEGIN');
+    const custno = await nextCustomerNumber(client);
     await client.query(
       `INSERT INTO customer (custno, custname, payterm)
        VALUES ($1, $2, 'COD')`,

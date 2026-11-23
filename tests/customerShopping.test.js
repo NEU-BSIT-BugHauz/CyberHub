@@ -23,6 +23,7 @@ app.use((_err, _req, res, _next) => res.status(500).json({ error: 'Internal serv
 const auth = { rows: [{ id: 45, custno: 'C12345678' }] };
 const signed = (method, path) => request(app)[method](`/api/customer-shopping${path}`).set('x-customer', 'yes');
 const UUID = 'f998bd10-bbe7-49b9-9b36-f90e44ccab0a';
+const ADDRESS = '12 Mabini Street, Barangay San Isidro, Angono, Rizal 1930';
 const priceRow = (overrides = {}) => ({
   prodcode: 'PROD01', description: 'CAT6 Cable', unit: 'mtr', quantity: 2,
   is_deleted: false, current_price: '27.50', ...overrides,
@@ -120,6 +121,16 @@ test('checkout requires a valid idempotency token', async () => {
   expect(pool.connect).not.toHaveBeenCalled();
 });
 
+test('checkout blocks missing, whitespace-only, and short delivery addresses before a DB transaction', async () => {
+  for (const value of [undefined, '     ', 'short']) {
+    pool.query.mockResolvedValueOnce(auth);
+    const response = await signed('post', '/checkout').send({ checkout_token: UUID, delivery_address: value });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/Delivery address/i);
+  }
+  expect(pool.connect).not.toHaveBeenCalled();
+});
+
 function mockClient(results) {
   const client = { query: jest.fn(), release: jest.fn() };
   for (const result of results) client.query.mockResolvedValueOnce(result);
@@ -139,11 +150,11 @@ test('checkout snapshots current server-side prices and clears the cart in one t
     { rows: [] }, // delete cart
     { rows: [] }, // COMMIT
   ]);
-  const response = await signed('post', '/checkout').send({ checkout_token: UUID });
+  const response = await signed('post', '/checkout').send({ checkout_token: UUID, delivery_address: ADDRESS });
   expect(response.status).toBe(201);
   expect(response.body.order.order_id).toBe(91);
   expect(response.body.order.status).toBe('pending');
-  expect(client.query.mock.calls[4][1]).toEqual([45, 'C12345678', UUID, '55.00']);
+  expect(client.query.mock.calls[4][1]).toEqual([45, 'C12345678', UUID, '55.00', ADDRESS]);
   expect(client.query.mock.calls[5][1]).toEqual([91, 'PROD01', 'CAT6 Cable', 'mtr', 2, '27.50', '55.00']);
   expect(client.query.mock.calls[7][0]).toBe('COMMIT');
   expect(client.query.mock.calls.some(call => call[0] === 'ROLLBACK')).toBe(false);
@@ -156,7 +167,7 @@ test('retrying the same checkout token returns existing order, even when cart is
     { rows: [] }, { rows: [auth.rows[0]] },
     { rows: [{ order_id: 91, status: 'pending', total_amount: '55.00' }] }, { rows: [] },
   ]);
-  const response = await signed('post', '/checkout').send({ checkout_token: UUID });
+  const response = await signed('post', '/checkout').send({ checkout_token: UUID, delivery_address: ADDRESS });
   expect(response.status).toBe(200);
   expect(response.body.already_submitted).toBe(true);
   expect(client.query).toHaveBeenCalledTimes(4);
@@ -169,7 +180,7 @@ test('checkout rejects unavailable products and rolls back before making an orde
     { rows: [] }, { rows: [auth.rows[0]] }, { rows: [] },
     { rows: [priceRow({ current_price: null })] }, { rows: [] },
   ]);
-  const response = await signed('post', '/checkout').send({ checkout_token: UUID });
+  const response = await signed('post', '/checkout').send({ checkout_token: UUID, delivery_address: ADDRESS });
   expect(response.status).toBe(409);
   expect(client.query.mock.calls[4][0]).toBe('ROLLBACK');
   expect(client.query.mock.calls.some(call => String(call[0]).includes('INSERT INTO customer_web_orders'))).toBe(false);
@@ -181,7 +192,7 @@ test('empty cart cannot submit an order', async () => {
   const client = mockClient([
     { rows: [] }, { rows: [auth.rows[0]] }, { rows: [] }, { rows: [] }, { rows: [] },
   ]);
-  expect((await signed('post', '/checkout').send({ checkout_token: UUID })).status).toBe(409);
+  expect((await signed('post', '/checkout').send({ checkout_token: UUID, delivery_address: ADDRESS })).status).toBe(409);
   expect(client.query.mock.calls[4][0]).toBe('ROLLBACK');
 });
 
@@ -190,7 +201,7 @@ test('database failure during checkout rolls back and releases the connection', 
   const client = { query: jest.fn(), release: jest.fn() };
   client.query.mockResolvedValueOnce({ rows: [] }).mockRejectedValueOnce(new Error('Database failed')).mockResolvedValueOnce({ rows: [] });
   pool.connect.mockResolvedValueOnce(client);
-  expect((await signed('post', '/checkout').send({ checkout_token: UUID })).status).toBe(500);
+  expect((await signed('post', '/checkout').send({ checkout_token: UUID, delivery_address: ADDRESS })).status).toBe(500);
   expect(client.query.mock.calls[2][0]).toBe('ROLLBACK');
   expect(client.release).toHaveBeenCalledTimes(1);
 });

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { promisify } = require('util');
 const express = require('express');
 const { pool } = require('../config/db');
+const { nextCustomerNumber } = require('../services/customerNumber');
 const router = express.Router();
 const scrypt = promisify(crypto.scrypt);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -76,9 +77,9 @@ router.post('/', async (req, res, next) => {
   try {
     const salt = crypto.randomBytes(16).toString('hex');
     const passwordHash = `${salt}:${(await scrypt(password, salt, 64)).toString('hex')}`;
-    const custno = `C${crypto.randomBytes(9).toString('hex').toUpperCase()}`;
     client = await pool.connect();
     await client.query('BEGIN');
+    const custno = await nextCustomerNumber(client);
     await client.query(
       `INSERT INTO customer (custno, custname, payterm) VALUES ($1, $2, 'COD')`,
       [custno, payload.full_name]
