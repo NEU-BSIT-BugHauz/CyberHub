@@ -5,3 +5,9 @@ node_modules/
 
 # Jest test coverage
 coverage/
+
+.env
+.env.*
+!.env.example
+
+DATABASE_URL=your_supabase_connection_string
