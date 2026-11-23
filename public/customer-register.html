@@ -3,37 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b1224" />
   <title>CyberHub | Customer Registration</title>
   <link rel="stylesheet" href="/portal.css" />
+  <link rel="stylesheet" href="/customer-auth.css" />
 </head>
-<body class="portal-page auth-page">
+<body class="portal-page auth-page" data-customer-page="register">
   <header class="portal-header">
     <a class="portal-brand" href="/"><span class="brand-logo">CH</span><span>CyberHub <small>Customer Portal</small></span></a>
-    <nav class="top-navigation"><a href="/">Home</a><a href="/customer/login">Customer login</a></nav>
+    <nav class="top-navigation"><a href="/">Home</a><a href="/customer/login">Customer Login</a></nav>
   </header>
   <main class="auth-shell">
     <section class="portal-auth-card" aria-labelledby="customer-register-title">
       <div class="choice-icon" aria-hidden="true">🛍</div>
-      <p class="choice-kicker">CREATE A CUSTOMER ACCOUNT</p>
-      <h1 id="customer-register-title">Join CyberHub</h1>
-      <p class="auth-intro">Customers will sign up using their contact information. Employee number verification is only for staff accounts.</p>
-      <p class="phase-notice" role="status"><strong>Not available yet:</strong> Customer registration is a preview. Database-backed customer account creation will require DB Admin review.</p>
-      <form aria-label="Customer registration preview" onsubmit="return false">
+      <p class="choice-kicker">JOIN CYBERHUB</p>
+      <h1 id="customer-register-title">Create an account</h1>
+      <p class="auth-intro">Register with your name and contact information. No employee number is needed.</p>
+      <p id="customer-auth-message" class="customer-message" role="status" aria-live="polite"></p>
+      <form id="customer-register-form">
         <label for="customer-full-name">Full name</label>
-        <input id="customer-full-name" placeholder="Your name" disabled />
+        <input id="customer-full-name" name="full_name" autocomplete="name" maxlength="150" minlength="2" required />
         <label for="customer-register-email">Email address</label>
-        <input id="customer-register-email" type="email" placeholder="you@example.com" disabled />
+        <input id="customer-register-email" name="email" type="email" autocomplete="email" maxlength="190" required />
+        <label for="customer-phone">Phone (optional)</label>
+        <input id="customer-phone" name="phone" autocomplete="tel" maxlength="25" />
         <label for="customer-register-password">Password</label>
-        <input id="customer-register-password" type="password" placeholder="Create a password" disabled />
+        <input id="customer-register-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required />
         <label for="customer-confirm-password">Confirm password</label>
-        <input id="customer-confirm-password" type="password" placeholder="Confirm password" disabled />
-        <button class="portal-button primary button-full" type="button" disabled>Create Customer Account — not enabled</button>
+        <input id="customer-confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required />
+        <button class="portal-button primary button-full" type="submit">Create customer account</button>
       </form>
-      <p class="auth-switch">Already a customer? <a href="/customer/login">Customer Login</a></p>
+      <p class="auth-switch">Already a customer? <a href="/customer/login">Sign in</a></p>
       <p class="auth-switch">Staff member? <a href="/staff/login">Employee Login</a></p>
     </section>
   </main>
   <footer class="portal-footer">CyberHub · Customer Portal</footer>
+  <script defer src="/js/customer-auth.js"></script>
 </body>
 </html>
