@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1224" />
+  <title>CyberHub | My Orders</title>
+  <link rel="stylesheet" href="/portal.css" />
+  <link rel="stylesheet" href="/customer-auth.css" />
+  <link rel="stylesheet" href="/customer-navigation.css" />
+  <script defer src="/js/customer-auth.js"></script>
+</head>
+<body class="portal-page" data-customer-page="orders">
+  <header class="portal-header">
+    <a class="portal-brand" href="/customer/dashboard"><span class="brand-logo">CH</span><span>CyberHub <small>Customer Portal</small></span></a>
+    <nav class="top-navigation customer-nav" aria-label="Customer navigation">
+        <a href="/customer/dashboard">Dashboard</a>
+        <a href="/customer/shop">Shop Products</a>
+        <a href="/customer/cart">My Cart</a>
+        <a href="/customer/checkout">Checkout</a>
+        <a href="/customer/orders" aria-current="page">My Orders</a>
+        <a href="/customer/profile">My Profile</a>
+      <button id="customer-logout" type="button" class="portal-button secondary">Sign out</button>
+    </nav>
+  </header>
+  <main class="customer-shell customer-nav-page">
+    <p class="choice-kicker">ORDER HISTORY</p>
+    <h1>My Orders</h1>
+    <p id="customer-auth-message" class="customer-message" role="status" aria-live="polite"></p>
+    <p class="customer-intro">This section is part of your customer navigation, but its transactions are not enabled yet.</p>
+    <section class="customer-card" aria-label="Feature availability">
+      <span class="customer-status-tag">In development</span>
+      <h2 style="margin-top:18px">My Orders is coming soon</h2>
+      <p>Order history is not connected yet. No orders are shown here until the customer orders API is implemented.</p>
+      <div class="customer-button-row">
+        <a class="portal-button primary" href="/customer/dashboard">Back to Dashboard</a>
+        <a class="portal-button secondary" href="/customer/profile">View My Profile</a>
+      </div>
+    </section>
+  </main>
+  <footer class="portal-footer">CyberHub · Customer Portal</footer>
+</body>
+</html>
