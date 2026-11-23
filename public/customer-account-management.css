@@ -1,0 +1,30 @@
+.admin-container { flex:1; }
+.admin-container > h1 { max-width:780px; }
+.admin-toolbar { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px;margin-top:36px;margin-bottom:18px; }
+.admin-toolbar h2, .admin-panel h2 { margin:0 0 8px;font-size:1.3rem; }
+.admin-toolbar p, .form-hint {color:var(--muted);font-size:.84rem;line-height:1.6;margin:0;}
+.admin-panel { background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:24px;margin-bottom:18px; }
+.admin-panel[hidden],#admin-interface[hidden] { display:none; }
+.admin-message {display:none;border-radius:10px;padding:12px 15px;margin:20px 0;background:#1c3647;color:#edf9ff;border:1px solid #35657c;}
+.admin-message:not(:empty) {display:block;}
+.admin-message.error {background:#4b2430;border-color:#a83a50;color:#fee2e2;}
+.admin-message.success {background:#173b30;border-color:#15803d;color:#dcfce7;}
+.admin-form { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 22px;margin-top:16px; }
+.admin-form label,.search-label {display:block;color:#deebfa;font-size:.85rem;font-weight:650;}
+.admin-form input,#customer-account-search {display:block;margin-top:8px;width:100%;min-height:44px;color:var(--text);font:inherit;background:#0d1b2d;border:1px solid #425570;border-radius:9px;padding:10px 12px;}
+.form-buttons {display:flex;align-items:end;gap:10px;flex-wrap:wrap;grid-column:1 / -1;margin-top:8px;}
+.admin-table-wrap {overflow-x:auto;margin-top:20px;}
+.admin-table {border-collapse:collapse;width:100%;font-size:.86rem;}
+.admin-table th,.admin-table td {padding:12px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle;}
+.admin-table th {color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.065em;}
+.admin-table td {overflow-wrap:anywhere;}
+.customer-name {font-weight:700;}
+.status-chip {display:inline-flex;border-radius:30px;padding:4px 9px;font-size:.73rem;background:#3a2637;color:#ffdcdf;}
+.status-chip.active {background:#194f39;color:#9aefcb;}
+.action-buttons {display:flex;gap:7px;flex-wrap:wrap;}
+.action-buttons button {padding:7px 10px;background:#31435f;border:1px solid #4d6180;color:#f3f7ff;border-radius:7px;cursor:pointer;font-size:.78rem;}
+.action-buttons button:hover {background:#405878;}
+@media(max-width:650px){.admin-form{grid-template-columns:1fr;}.admin-panel{padding:17px;}}
+
+/* Keep customer creation restricted in the staff interface. */
+#show-customer-add[hidden] { display: none; }
