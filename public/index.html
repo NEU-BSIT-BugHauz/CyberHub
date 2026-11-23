@@ -612,6 +612,21 @@
                 </select>
               </div>
 
+              <div class="form-field hidden" id="add-password-field">
+                <label for="add-password">Initial password (optional)</label>
+                <input id="add-password" name="initial-password" type="password"
+                       minlength="8" maxlength="128" autocomplete="new-password"
+                       placeholder="At least 8 characters" />
+              </div>
+
+              <div class="form-field hidden" id="add-confirm-password-field">
+                <label for="add-confirm-password">Confirm initial password</label>
+                <input id="add-confirm-password" name="confirm-initial-password"
+                       type="password" minlength="8" maxlength="128"
+                       autocomplete="new-password"
+                       placeholder="Re-enter initial password" />
+              </div>
+
               <div class="form-actions">
                 <button class="btn btn-primary" type="submit">
                   Create Account
@@ -627,7 +642,7 @@
               </div>
             </form>
 
-            <p class="form-note">
+            <p class="form-note" id="add-password-note">
               New accounts are created without a password.
               The employee must set their own password through
               the password reset process.

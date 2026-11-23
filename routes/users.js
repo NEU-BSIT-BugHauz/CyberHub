@@ -1,7 +1,16 @@
+const crypto = require('crypto');
+const { promisify } = require('util');
 const express = require('express');
 const { pool } = require('../config/db');
 
 const router = express.Router();
+const scrypt = promisify(crypto.scrypt);
+
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = await scrypt(password, salt, 64);
+  return `${salt}:${derived.toString('hex')}`;
+}
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EMPNO_REGEX = /^[A-Za-z0-9]{5}$/;
@@ -79,6 +88,8 @@ router.get('/', requireAuth, requireManager, async (req, res, next) => {
 });
 
 // ADD USER
+// Superadmins may optionally supply an initial password. Ordinary admins
+// can create only passwordless accounts that require employee setup.
 router.post('/', requireAuth, requireManager, async (req, res, next) => {
   try {
     const empno = String(req.body.empno || '').trim().toUpperCase();
@@ -93,12 +104,37 @@ router.post('/', requireAuth, requireManager, async (req, res, next) => {
         error: 'A valid email address of no more than 190 characters is required.',
       });
     }
+
     const requestedRole = req.body.role || 'user';
     if (!getManageableRoles(req.manager.role).includes(requestedRole)) {
       return res.status(403).json({
         error: 'You are not allowed to create this account role.',
       });
     }
+
+    const submittedPassword = req.body.password;
+    if (submittedPassword !== undefined && req.manager.role !== 'superadmin') {
+      return res.status(403).json({
+        error: 'Only superadmins may assign an initial password.',
+      });
+    }
+    if (submittedPassword !== undefined && typeof submittedPassword !== 'string') {
+      return res.status(400).json({ error: 'Password must be a string.' });
+    }
+
+    // Empty or omitted password retains the original setup-by-employee flow.
+    // Do not trim valid passwords: spaces can be significant characters.
+    const password = submittedPassword || '';
+    if (password && (
+      password.length < 8 ||
+      password.length > 128 ||
+      password.trim().length === 0
+    )) {
+      return res.status(400).json({
+        error: 'Initial password must be 8 to 128 characters and not blank.',
+      });
+    }
+
     const employeeResult = await pool.query(
       `SELECT empno, firstname, lastname
        FROM employee
@@ -116,16 +152,23 @@ router.post('/', requireAuth, requireManager, async (req, res, next) => {
     if (!fullName) {
       return res.status(400).json({ error: 'Employee name is incomplete.' });
     }
+
+    // The login route expects a salted scrypt hash; never store or return
+    // a plaintext password.
+    const passwordHash = password ? await hashPassword(password) : null;
+    const mustSetPassword = passwordHash === null;
     const result = await pool.query(
       `INSERT INTO users (
          empno, full_name, email, password_hash, role, status, must_set_password
-       ) VALUES ($1, $2, $3, NULL, $4, 'active', TRUE)
+       ) VALUES ($1, $2, $3, $4, $5, 'active', $6)
        RETURNING id AS user_id, empno, full_name, email, role,
                  status, must_set_password, created_at`,
-      [empno, fullName, email, requestedRole]
+      [empno, fullName, email, passwordHash, requestedRole, mustSetPassword]
     );
     return res.status(201).json({
-      message: 'User account created. The employee must set their password.',
+      message: mustSetPassword
+        ? 'User account created. The employee must set their password.'
+        : 'User account created with an initial password.',
       user: result.rows[0],
     });
   } catch (err) {
