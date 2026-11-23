@@ -1,4 +1,3 @@
-
 const request = require('supertest');
 const express = require('express');
 
@@ -558,4 +557,72 @@ describe('CyberHub User Management API', () => {
       expect(pool.query).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('Pending employee approval', () => {
+    test('approves an eligible pending regular user', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [createManager()] })
+        .mockResolvedValueOnce({ rows: [createUser({ status: 'active' })] });
+
+      const response = await request(app)
+        .patch('/api/users/20/status')
+        .set('x-user-id', '10')
+        .send({ status: 'active' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.user.status).toBe('active');
+      const [sql, params] = pool.query.mock.calls[1];
+      expect(sql).toContain("u.status IN ('pending', 'blocked')");
+      expect(sql).toContain('e.sepdate IS NULL');
+      expect(sql).toContain('e.is_deleted = FALSE');
+      expect(params).toEqual(['20', 10, ['user']]);
+    });
+
+    test('does not activate an ineligible or already-active employee', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [createManager()] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .patch('/api/users/20/status')
+        .set('x-user-id', '10')
+        .send({ status: 'active' });
+
+      expect(response.status).toBe(404);
+      expect(pool.query).toHaveBeenCalledTimes(2);
+    });
+
+    test('admins cannot approve admin accounts', async () => {
+      pool.query
+        .mockResolvedValueOnce({ rows: [createManager()] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .patch('/api/users/20/status')
+        .set('x-user-id', '10')
+        .send({ status: 'active' });
+
+      expect(response.status).toBe(404);
+      expect(pool.query.mock.calls[1][1][2]).toEqual(['user']);
+    });
+
+    test('superadmins can approve admins but not superadmins', async () => {
+      pool.query
+        .mockResolvedValueOnce({
+          rows: [createManager({ id: 99, role: 'superadmin' })],
+        })
+        .mockResolvedValueOnce({
+          rows: [createUser({ role: 'admin', status: 'active' })],
+        });
+
+      const response = await request(app)
+        .patch('/api/users/20/status')
+        .set('x-user-id', '99')
+        .send({ status: 'active' });
+
+      expect(response.status).toBe(200);
+      expect(pool.query.mock.calls[1][1][2]).toEqual(['user', 'admin']);
+    });
+  });
+
 });
