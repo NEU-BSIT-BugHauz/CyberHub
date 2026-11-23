@@ -88,6 +88,10 @@ app.get('/api/health', async (_req, res) => {
   });
 });
 
+// CUSTOMER AUTHENTICATION (separate from employee routes)
+const customerAuthRoutes = require('./routes/customerAuth');
+app.use('/api/customer-auth', customerAuthRoutes);
+
 // AUTHENTICATION ROUTES
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);

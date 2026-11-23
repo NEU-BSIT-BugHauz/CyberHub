@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b1224" />
   <title>CyberHub | Customer Login</title>
   <link rel="stylesheet" href="/portal.css" />
+  <link rel="stylesheet" href="/customer-auth.css" />
 </head>
-<body class="portal-page auth-page">
+<body class="portal-page auth-page" data-customer-page="login">
   <header class="portal-header">
     <a class="portal-brand" href="/"><span class="brand-logo">CH</span><span>CyberHub <small>Customer Portal</small></span></a>
     <nav class="top-navigation"><a href="/">Home</a><a href="/staff/login">Employee login</a></nav>
@@ -17,19 +17,20 @@
       <div class="choice-icon" aria-hidden="true">🛍</div>
       <p class="choice-kicker">CUSTOMER ACCESS</p>
       <h1 id="customer-login-title">Welcome back</h1>
-      <p class="auth-intro">Your customer account will be separate from employee accounts. No employee number is required.</p>
-      <p class="phase-notice" role="status"><strong>Not available yet:</strong> Customer login requires a future database-approved integration. Please do not enter credentials here.</p>
-      <form aria-label="Customer login preview" onsubmit="return false">
+      <p class="auth-intro">Use your customer email and password. Employee accounts sign in separately.</p>
+      <p id="customer-auth-message" class="customer-message" role="status" aria-live="polite"></p>
+      <form id="customer-login-form">
         <label for="customer-email">Email address</label>
-        <input id="customer-email" type="email" placeholder="you@example.com" autocomplete="off" disabled />
+        <input id="customer-email" name="email" type="email" autocomplete="username" maxlength="190" required />
         <label for="customer-password">Password</label>
-        <input id="customer-password" type="password" placeholder="Password" autocomplete="off" disabled />
-        <button class="portal-button primary button-full" type="button" disabled>Customer Sign In — not enabled</button>
+        <input id="customer-password" name="password" type="password" autocomplete="current-password" required />
+        <button class="portal-button primary button-full" type="submit">Sign in</button>
       </form>
-      <p class="auth-switch">New customer? <a href="/customer/register">View registration preview</a></p>
-      <p class="auth-switch">Are you an employee? <a href="/staff/login">Go to Employee Login</a></p>
+      <p class="auth-switch">New customer? <a href="/customer/register">Create a customer account</a></p>
+      <p class="auth-switch">Staff member? <a href="/staff/login">Employee Login</a></p>
     </section>
   </main>
   <footer class="portal-footer">CyberHub · Customer Portal</footer>
+  <script defer src="/js/customer-auth.js"></script>
 </body>
 </html>

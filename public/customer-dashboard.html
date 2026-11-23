@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyberHub | Customer Dashboard</title>
+  <link rel="stylesheet" href="/portal.css" />
+  <link rel="stylesheet" href="/customer-auth.css" />
+</head>
+<body class="portal-page" data-customer-page="dashboard">
+  <header class="portal-header">
+    <a class="portal-brand" href="/"><span class="brand-logo">CH</span><span>CyberHub <small>Customer Portal</small></span></a>
+    <nav class="top-navigation"><a href="/">Home</a><button id="customer-logout" type="button" class="portal-button secondary">Sign out</button></nav>
+  </header>
+  <main class="portal-container customer-dashboard" id="customer-dashboard">
+    <p class="choice-kicker">YOUR ACCOUNT</p>
+    <h1>Welcome, <span id="customer-display-name">customer</span></h1>
+    <p class="hero-description">Your account is ready. Product shopping and orders will be added in a separate feature.</p>
+    <p id="customer-auth-message" class="customer-message" role="status" aria-live="polite"></p>
+    <section class="portal-choice customer-detail-card" aria-label="Account details">
+      <h2>Customer profile</h2>
+      <dl class="customer-details">
+        <div><dt>Customer number</dt><dd id="customer-display-number">—</dd></div>
+        <div><dt>Email address</dt><dd id="customer-display-email">—</dd></div>
+        <div><dt>Phone</dt><dd id="customer-display-phone">—</dd></div>
+        <div><dt>Status</dt><dd id="customer-display-status">—</dd></div>
+      </dl>
+    </section>
+  </main>
+  <footer class="portal-footer">CyberHub · Customer Portal</footer>
+  <script defer src="/js/customer-auth.js"></script>
+</body>
+</html>

@@ -36,6 +36,7 @@ router.get('/', (req, res) => {
 router.get('/customer', (_req, res) => res.redirect(302, '/customer/login'));
 router.get('/customer/login', servePage('customer-login.html'));
 router.get('/customer/register', servePage('customer-register.html'));
+router.get('/customer/dashboard', servePage('customer-dashboard.html'));
 
 // Compatibility aliases only. The original employee HTML, JavaScript, login,
 // role checks, database configuration and session handling remain untouched.
