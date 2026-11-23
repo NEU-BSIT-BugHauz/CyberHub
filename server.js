@@ -9,6 +9,9 @@ require('dotenv').config();
 const { pool } = require('./config/db');
 
 const app = express();
+
+app.set('trust proxy', 1);
+
 const PORT = Number(process.env.PORT) || 3000;
 
 const isProduction = process.env.NODE_ENV === 'production';
