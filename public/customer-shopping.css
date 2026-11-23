@@ -17,3 +17,12 @@
 .customer-shopping-order-details[hidden] { display: none; }
 .customer-shopping-disclaimer { color: var(--muted); line-height: 1.6; max-width: 850px; margin-top: 20px; }
 @media (max-width: 640px) { .customer-shopping-panel,.customer-shopping-order-details { padding: 17px; } .customer-shopping-line { align-items: stretch; } .customer-shopping-line-price { text-align: left; } }
+
+.customer-shopping-address { background: rgba(23,36,59,.88); border: 1px solid var(--border); border-radius: 16px; padding: 25px; max-width: 970px; margin-top: 22px; }
+.customer-shopping-address h2 { margin: 0 0 10px; }
+.customer-shopping-address p { margin-bottom: 16px; color: var(--muted); }
+.customer-shopping-address label { display: block; font-weight: 650; margin-bottom: 8px; }
+.customer-shopping-address textarea { display: block; width: 100%; resize: vertical; border: 1px solid #42526a; background: #0b162b; color: #fff; padding: 13px; border-radius: 9px; font: inherit; line-height: 1.5; }
+.customer-shopping-address textarea:focus { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.customer-shopping-address small { display: block; margin-top: 8px; color: var(--muted); }
+@media (max-width: 640px) { .customer-shopping-address { padding: 17px; } }

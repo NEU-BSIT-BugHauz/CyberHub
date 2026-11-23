@@ -133,13 +133,23 @@
 
   if (page === 'checkout') {
     const token = crypto.randomUUID();
+    const addressField = document.getElementById('delivery-address');
     action.addEventListener('click', async () => {
+      const deliveryAddress = addressField.value.trim();
+      if (deliveryAddress.length < 10 || deliveryAddress.length > 500) {
+        addressField.setCustomValidity('Enter a complete delivery address (10–500 characters).');
+        addressField.reportValidity();
+        addressField.focus();
+        show('A complete delivery address is required before checkout.', true);
+        return;
+      }
+      addressField.setCustomValidity('');
       if (!window.confirm('Submit this order for review? No online payment will be collected.')) return;
       action.disabled = true;
       show('Submitting order…');
       try {
         const data = await api('/checkout', {
-          method: 'POST', body: JSON.stringify({ checkout_token: token }),
+          method: 'POST', body: JSON.stringify({ checkout_token: token, delivery_address: deliveryAddress }),
         });
         window.location.assign(`/customer/orders?order=${encodeURIComponent(data.order.order_id)}`);
       } catch (error) {
@@ -149,6 +159,7 @@
         show(error.message, true);
       }
     });
+    addressField.addEventListener('input', () => addressField.setCustomValidity(''));
     loadCart().catch(error => show(error.message, true));
   }
 
@@ -159,6 +170,7 @@
     details.replaceChildren();
     details.append(el('h2', `Order #${order.order_id}`));
     details.append(el('p', `${formatDate(order.created_at)} · ${order.status}`));
+    if (order.delivery_address) details.append(el('p', `Delivery address: ${order.delivery_address}`));
     order.items.forEach(item => {
       const row = el('div', '', 'customer-shopping-line');
       row.append(el('span', `${item.description || item.prodcode} · ${item.quantity} × ${moneyText(item.unit_price)}`));

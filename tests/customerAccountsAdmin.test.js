@@ -84,10 +84,12 @@ test('customer creation validates initial password before touching DB', async ()
 test('superadmin creates customer and account atomically without storing plaintext', async () => {
   pool.query.mockResolvedValueOnce({ rows: [admin('superadmin')] });
   const db = { query: jest.fn(), release: jest.fn() };
-  db.query.mockResolvedValueOnce({ rows: [] })
-    .mockResolvedValueOnce({ rows: [] })
-    .mockResolvedValueOnce({ rows: [{ account_id: 5, custno: 'C123', email: 'one@example.com', status: 'active' }] })
-    .mockResolvedValueOnce({ rows: [] });
+  db.query.mockResolvedValueOnce({ rows: [] }) // BEGIN
+    .mockResolvedValueOnce({ rows: [] }) // advisory lock
+    .mockResolvedValueOnce({ rows: [{ last_number: '8' }] }) // next number
+    .mockResolvedValueOnce({ rows: [] }) // customer insert
+    .mockResolvedValueOnce({ rows: [{ account_id: 5, custno: 'CUST9', email: 'one@example.com', status: 'active' }] })
+    .mockResolvedValueOnce({ rows: [] }); // COMMIT
   pool.connect.mockResolvedValueOnce(db);
   const res = await request(app).post('/api/admin/customer-accounts')
     .set('x-staff-id', '10').send({
@@ -95,10 +97,14 @@ test('superadmin creates customer and account atomically without storing plainte
     });
   expect(res.status).toBe(201);
   expect(db.query.mock.calls.map((call) => call[0])).toEqual([
-    'BEGIN', expect.stringContaining('INSERT INTO customer ('),
+    'BEGIN', expect.stringContaining('pg_advisory_xact_lock'),
+    expect.stringContaining('MAX(SUBSTRING'),
+    expect.stringContaining('INSERT INTO customer ('),
     expect.stringContaining('INSERT INTO customer_accounts ('), 'COMMIT',
   ]);
-  expect(db.query.mock.calls[2][1][2]).toMatch(/^[\da-f]{32}:[\da-f]{128}$/);
+  expect(db.query.mock.calls[3][1]).toEqual(['CUST9', 'Test Customer']);
+  expect(db.query.mock.calls[4][1][0]).toBe('CUST9');
+  expect(db.query.mock.calls[4][1][2]).toMatch(/^[\da-f]{32}:[\da-f]{128}$/);
   expect(res.body.customer.password_hash).toBeUndefined();
   expect(db.release).toHaveBeenCalledTimes(1);
 });
@@ -106,15 +112,17 @@ test('superadmin creates customer and account atomically without storing plainte
 test('superadmin creation rolls back duplicate email', async () => {
   pool.query.mockResolvedValueOnce({ rows: [admin('superadmin')] });
   const db = { query: jest.fn(), release: jest.fn() };
-  db.query.mockResolvedValueOnce({ rows: [] })
-    .mockResolvedValueOnce({ rows: [] })
-    .mockRejectedValueOnce({ code: '23505' })
+  db.query.mockResolvedValueOnce({ rows: [] }) // BEGIN
+    .mockResolvedValueOnce({ rows: [] }) // lock
+    .mockResolvedValueOnce({ rows: [{ last_number: '9' }] }) // next number
+    .mockResolvedValueOnce({ rows: [] }) // customer inserted
+    .mockRejectedValueOnce({ code: '23505' }) // duplicate email
     .mockResolvedValueOnce({ rows: [] });
   pool.connect.mockResolvedValueOnce(db);
   const res = await request(app).post('/api/admin/customer-accounts')
     .set('x-staff-id', '10').send({ full_name: 'Test Customer', email: 'one@example.com', password: 'customerPass123' });
   expect(res.status).toBe(409);
-  expect(db.query.mock.calls[3][0]).toBe('ROLLBACK');
+  expect(db.query.mock.calls[5][0]).toBe('ROLLBACK');
 });
 
 test('edit rejects invalid IDs and names', async () => {

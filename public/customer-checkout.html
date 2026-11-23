@@ -34,6 +34,15 @@
     <section id="shopping-content" class="customer-shopping-panel" aria-label="Checkout details">
       <p>Loading…</p>
     </section>
+    <section class="customer-shopping-address" aria-labelledby="delivery-address-heading">
+      <h2 id="delivery-address-heading">Delivery address</h2>
+      <p>Enter the complete address where your order should be delivered before submitting.</p>
+      <label for="delivery-address">Full delivery address <span aria-hidden="true">*</span></label>
+      <textarea id="delivery-address" name="delivery_address" rows="4"
+        minlength="10" maxlength="500" required autocomplete="street-address"
+        placeholder="House / Unit no., Street, Barangay, City, Province, ZIP code"></textarea>
+      <small>Required, 10–500 characters. We save this address with your order.</small>
+    </section>
     <div class="customer-shopping-actions">
       <button type="button" id="shopping-action" class="portal-button primary" disabled>Submit order</button>
       <a class="portal-button secondary" href="/customer/cart">Edit cart</a>
