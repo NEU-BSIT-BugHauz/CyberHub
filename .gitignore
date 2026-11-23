@@ -10,4 +10,4 @@ coverage/
 .env.*
 !.env.example
 
-DATABASE_URL=your_supabase_connection_string
+DATABASE_URL=postgresql://postgres.htjashsxdmlmpeocvsuj:YOUR_PASSWORD@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
