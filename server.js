@@ -92,6 +92,10 @@ app.get('/api/health', async (_req, res) => {
 const customerAuthRoutes = require('./routes/customerAuth');
 app.use('/api/customer-auth', customerAuthRoutes);
 
+// CUSTOMER SHOP: a separate read-only API for authenticated customers
+const customerShopRoutes = require('./routes/customerShop');
+app.use('/api/customer-shop', customerShopRoutes);
+
 // AUTHENTICATION ROUTES
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);

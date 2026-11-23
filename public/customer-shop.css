@@ -1,0 +1,20 @@
+/* Customer-only product catalog. Does not affect employee product screens. */
+.customer-shop-filters { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; padding: 18px; margin: 22px 0 18px; border: 1px solid var(--border); border-radius: 15px; background: rgba(23,36,59,.8); }
+.customer-shop-filter { display: flex; flex-direction: column; gap: 8px; min-width: 180px; }
+.customer-shop-filter:first-child { flex: 1; min-width: min(100%, 250px); }
+.customer-shop-filter label { color: var(--muted); font-size: .85rem; font-weight: 700; }
+.customer-shop-filter input, .customer-shop-filter select { width: 100%; background: #0b162b; color: #f8fafc; border: 1px solid #42526a; border-radius: 9px; padding: 12px; min-height: 43px; font: inherit; }
+.customer-shop-filter input:focus, .customer-shop-filter select:focus { outline: 2px solid var(--accent2); outline-offset: 2px; }
+.customer-shop-filters .portal-button { min-height: 43px; }
+.customer-shop-message { color: var(--muted); margin: 10px 0 18px; min-height: 25px; }
+.customer-shop-message.error { color: #fca5a5; }
+.customer-shop-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(min(100%,270px),1fr)); gap: 18px; }
+.customer-shop-product { padding: 23px; background: rgba(23,36,59,.88); border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; gap: 11px; min-width: 0; }
+.customer-shop-code { color: var(--accent2); font-weight: 750; font-size: .78rem; letter-spacing: .06em; }
+.customer-shop-product h2 { font-size: 1.2rem; margin: 0; overflow-wrap: anywhere; }
+.customer-shop-unit { color: var(--muted); font-size: .9rem; }
+.customer-shop-price { color: #f8fafc; font-size: 1.45rem; font-weight: 800; }
+.customer-shop-price.not-priced { color: #fbbf24; font-size: 1rem; }
+.customer-shop-price-date { color: var(--muted); font-size: .78rem; }
+.customer-shop-note { color: var(--muted); font-size: .85rem; line-height: 1.55; margin-top: 28px; }
+@media(max-width:600px) { .customer-shop-filters { align-items: stretch; } .customer-shop-filter { width: 100%; } .customer-shop-filters .portal-button { flex: 1; } }
