@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1224" />
+  <title>CyberHub | Customer Registration</title>
+  <link rel="stylesheet" href="/portal.css" />
+</head>
+<body class="portal-page auth-page">
+  <header class="portal-header">
+    <a class="portal-brand" href="/"><span class="brand-logo">CH</span><span>CyberHub <small>Customer Portal</small></span></a>
+    <nav class="top-navigation"><a href="/">Home</a><a href="/customer/login">Customer login</a></nav>
+  </header>
+  <main class="auth-shell">
+    <section class="portal-auth-card" aria-labelledby="customer-register-title">
+      <div class="choice-icon" aria-hidden="true">🛍</div>
+      <p class="choice-kicker">CREATE A CUSTOMER ACCOUNT</p>
+      <h1 id="customer-register-title">Join CyberHub</h1>
+      <p class="auth-intro">Customers will sign up using their contact information. Employee number verification is only for staff accounts.</p>
+      <p class="phase-notice" role="status"><strong>Not available yet:</strong> Customer registration is a preview. Database-backed customer account creation will require DB Admin review.</p>
+      <form aria-label="Customer registration preview" onsubmit="return false">
+        <label for="customer-full-name">Full name</label>
+        <input id="customer-full-name" placeholder="Your name" disabled />
+        <label for="customer-register-email">Email address</label>
+        <input id="customer-register-email" type="email" placeholder="you@example.com" disabled />
+        <label for="customer-register-password">Password</label>
+        <input id="customer-register-password" type="password" placeholder="Create a password" disabled />
+        <label for="customer-confirm-password">Confirm password</label>
+        <input id="customer-confirm-password" type="password" placeholder="Confirm password" disabled />
+        <button class="portal-button primary button-full" type="button" disabled>Create Customer Account — not enabled</button>
+      </form>
+      <p class="auth-switch">Already a customer? <a href="/customer/login">Customer Login</a></p>
+      <p class="auth-switch">Staff member? <a href="/staff/login">Employee Login</a></p>
+    </section>
+  </main>
+  <footer class="portal-footer">CyberHub · Customer Portal</footer>
+</body>
+</html>

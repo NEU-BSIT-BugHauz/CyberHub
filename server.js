@@ -43,6 +43,10 @@ app.use(
   })
 );
 
+// Add public landing and customer preview routes without changing employee code.
+const customerPortalPages = require('./routes/customerPortalPages');
+app.use(customerPortalPages);
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // HEALTH CHECK
