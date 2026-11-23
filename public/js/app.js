@@ -1,11 +1,14 @@
 
 const loginView = document.getElementById('login-view');
+const registerView = document.getElementById('register-view');
 const forgotPasswordView = document.getElementById('forgot-password-view');
 const resetPasswordView = document.getElementById('reset-password-view');
 const dashboardView = document.getElementById('dashboard-view');
 
 const loginForm = document.getElementById('login-form');
 const loginMessage = document.getElementById('login-message');
+const registerForm = document.getElementById('register-form');
+const registerMessage = document.getElementById('register-message');
 const forgotPasswordForm = document.getElementById('forgot-password-form');
 const forgotMessage = document.getElementById('forgot-message');
 const resetPasswordForm = document.getElementById('reset-password-form');
@@ -167,6 +170,7 @@ function hasModuleAccess(moduleName) {
 
 function hideAllViews() {
   loginView.classList.add('hidden');
+  registerView.classList.add('hidden');
   forgotPasswordView.classList.add('hidden');
   resetPasswordView.classList.add('hidden');
   dashboardView.classList.add('hidden');
@@ -177,6 +181,16 @@ function showLogin(message = '', type = '') {
   loginView.classList.remove('hidden');
 
   showMessage(loginMessage, message, type);
+}
+
+function showRegister() {
+  hideAllViews();
+  registerView.classList.remove('hidden');
+
+  registerForm.reset();
+  showMessage(registerMessage, '');
+
+  document.getElementById('register-empno').focus();
 }
 
 function showForgotPassword() {
@@ -423,6 +437,72 @@ document.getElementById('overview-module-list').addEventListener(
     showContentView('module', button.dataset.openModule);
   }
 );
+
+// ==========================================
+// REGISTRATION NAVIGATION AND SUBMISSION
+// ==========================================
+
+document.getElementById('show-register').addEventListener(
+  'click',
+  showRegister
+);
+
+document.getElementById('register-back-to-login').addEventListener(
+  'click',
+  () => {
+    registerForm.reset();
+    showLogin();
+  }
+);
+
+registerForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const submitButton = registerForm.querySelector('button[type="submit"]');
+  const empno = document.getElementById('register-empno').value.trim();
+  const email = document.getElementById('register-email').value.trim().toLowerCase();
+  const password = document.getElementById('register-password').value;
+  const confirmPassword = document.getElementById('register-confirm-password').value;
+
+  showMessage(registerMessage, '');
+
+  if (!/^[A-Za-z0-9]{5}$/.test(empno)) {
+    showMessage(registerMessage, 'Enter a valid 5-character employee number.', 'error');
+    return;
+  }
+
+  if (password.length < 8) {
+    showMessage(registerMessage, 'Your password must contain at least 8 characters.', 'error');
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    showMessage(registerMessage, 'The passwords do not match.', 'error');
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Creating account...';
+
+  try {
+    const data = await apiRequest('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ empno, email, password }),
+    });
+
+    registerForm.reset();
+    showLogin(
+      data.message ||
+        'Registration submitted. Your account is pending administrator approval.',
+      'success'
+    );
+  } catch (error) {
+    showMessage(registerMessage, error.message, 'error');
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = 'Create Account';
+  }
+});
 
 // ==========================================
 // PASSWORD RESET NAVIGATION

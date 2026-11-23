@@ -63,6 +63,100 @@
       >
         Forgot password?
       </button>
+
+      <div class="auth-switch">
+        <span class="muted">Don't have an account?</span>
+        <button id="show-register" class="text-button" type="button">
+          Create Account
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- REGISTER VIEW -->
+  <main id="register-view" class="login-wrapper hidden">
+    <section class="card login-card">
+      <div class="brand">
+        <div class="brand-mark">CH</div>
+        <div>
+          <h1>CyberHub</h1>
+          <p class="muted">Management Portal</p>
+        </div>
+      </div>
+
+      <div class="section-heading">
+        <h2>Create your account</h2>
+        <p class="muted">
+          Register using your active employee record. An administrator
+          must approve your account before you can sign in.
+        </p>
+      </div>
+
+      <form id="register-form">
+        <label for="register-empno">Employee number</label>
+        <input
+          id="register-empno"
+          name="empno"
+          type="text"
+          minlength="5"
+          maxlength="5"
+          pattern="[A-Za-z0-9]{5}"
+          autocomplete="off"
+          placeholder="e.g. E1234"
+          required
+        />
+
+        <label for="register-email">Email address</label>
+        <input
+          id="register-email"
+          name="email"
+          type="email"
+          maxlength="190"
+          autocomplete="email"
+          placeholder="you@example.com"
+          required
+        />
+
+        <label for="register-password">Password</label>
+        <input
+          id="register-password"
+          name="password"
+          type="password"
+          minlength="8"
+          autocomplete="new-password"
+          placeholder="At least 8 characters"
+          required
+        />
+
+        <label for="register-confirm-password">Confirm password</label>
+        <input
+          id="register-confirm-password"
+          name="confirmPassword"
+          type="password"
+          minlength="8"
+          autocomplete="new-password"
+          placeholder="Re-enter your password"
+          required
+        />
+
+        <button type="submit" class="btn btn-primary btn-full">
+          Create Account
+        </button>
+      </form>
+
+      <p id="register-message" class="message" role="alert" aria-live="polite"></p>
+
+      <p class="form-note">
+        Registration is available only to eligible employees. New accounts
+        start with pending status and have no module access until approved.
+      </p>
+
+      <div class="auth-switch">
+        <span class="muted">Already have an account?</span>
+        <button id="register-back-to-login" class="text-button" type="button">
+          Sign in
+        </button>
+      </div>
     </section>
   </main>
 
