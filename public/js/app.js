@@ -313,6 +313,11 @@ function showDashboard() {
 }
 
 function configureNavigation() {
+  const customerAccountsNavLink = document.getElementById('customer-accounts-nav');
+  if (customerAccountsNavLink) {
+    customerAccountsNavLink.classList.toggle('hidden', !isAdmin());
+  }
+
   const availableModules = getAvailableModules();
 
   document.querySelectorAll('.module-link').forEach((button) => {

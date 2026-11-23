@@ -100,6 +100,10 @@ app.use('/api/auth', authRoutes);
 const passwordResetRoutes = require('./routes/passwordReset');
 app.use('/api/auth', passwordResetRoutes);
 
+// CUSTOMER ACCOUNT ADMIN API
+const customerAccountsAdminRoutes = require('./routes/customerAccountsAdmin');
+app.use('/api/admin/customer-accounts', customerAccountsAdminRoutes);
+
 // USER MANAGEMENT ROUTES
 const usersRoutes = require('./routes/users');
 app.use('/api/users', usersRoutes);

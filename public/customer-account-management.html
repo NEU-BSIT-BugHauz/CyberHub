@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyberHub | Customer Account Management</title>
+  <link rel="stylesheet" href="/portal.css" />
+  <link rel="stylesheet" href="/customer-account-management.css" />
+</head>
+<body class="portal-page">
+  <header class="portal-header">
+    <a class="portal-brand" href="/staff/login"><span class="brand-logo">CH</span><span>CyberHub <small>Administration</small></span></a>
+    <nav class="top-navigation"><a href="/index.html">Back to Staff Dashboard</a></nav>
+  </header>
+  <main class="portal-container admin-container">
+    <p class="choice-kicker">ADMINISTRATION</p>
+    <h1>Customer <span>Accounts</span></h1>
+    <p class="hero-description">Manage customer logins separately from employee user accounts. Available to active admins and superadmins.</p>
+    <p id="accounts-message" class="admin-message" role="status" aria-live="polite"></p>
+    <div id="admin-interface" hidden>
+      <section class="admin-toolbar">
+        <div><h2>Customer account directory</h2><p id="account-count">Loading accounts...</p></div>
+        <button type="button" id="show-customer-add" hidden class="portal-button primary">+ Add Customer Account</button>
+      </section>
+      <section id="customer-add-panel" class="admin-panel" hidden>
+        <h2>Create customer account</h2>
+        <p class="form-hint">Set a unique initial password and share it privately with the customer. Passwords are never displayed again.</p>
+        <form id="customer-add-form" class="admin-form">
+          <label>Full name <input name="full_name" minlength="2" maxlength="150" required autocomplete="off" /></label>
+          <label>Email <input name="email" type="email" maxlength="190" required autocomplete="off" /></label>
+          <label>Phone (optional) <input name="phone" maxlength="25" autocomplete="off" /></label>
+          <label>Initial password <input name="password" type="password" minlength="8" maxlength="128" required autocomplete="new-password" /></label>
+          <label>Confirm password <input name="confirm_password" type="password" minlength="8" maxlength="128" required autocomplete="new-password" /></label>
+          <div class="form-buttons"><button class="portal-button primary" type="submit">Create Customer</button><button class="portal-button secondary" type="button" data-hide="customer-add-panel">Cancel</button></div>
+        </form>
+      </section>
+      <section id="customer-edit-panel" class="admin-panel" hidden>
+        <h2>Edit customer account</h2>
+        <form id="customer-edit-form" class="admin-form">
+          <input type="hidden" name="account_id" />
+          <label>Full name <input name="full_name" minlength="2" maxlength="150" required /></label>
+          <label>Email <input name="email" type="email" maxlength="190" required /></label>
+          <label>Phone (optional) <input name="phone" maxlength="25" /></label>
+          <div class="form-buttons"><button class="portal-button primary" type="submit">Save Changes</button><button class="portal-button secondary" type="button" data-hide="customer-edit-panel">Cancel</button></div>
+        </form>
+      </section>
+      <section class="admin-panel">
+        <label class="search-label" for="customer-account-search">Search by customer name, number, or email</label>
+        <input id="customer-account-search" type="search" placeholder="Search customer accounts..." maxlength="100" />
+        <p class="form-hint">Shows up to 100 matching accounts. Use the search field to narrow the results.</p>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Customer</th><th>Customer No.</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="customer-accounts-body"><tr><td colspan="5">Loading accounts...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer class="portal-footer">CyberHub · Staff Customer Account Management</footer>
+  <script defer src="/js/customer-accounts-admin.js"></script>
+</body>
+</html>
