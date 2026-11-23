@@ -690,6 +690,7 @@ function renderUsers() {
     const role = escapeHtml(formatRole(user.role));
     const status = escapeHtml(user.status);
     const isBlocked = user.status === 'blocked';
+    const isPending = user.status === 'pending';
     const needsPassword = user.must_set_password;
 
     return `
@@ -712,6 +713,17 @@ function renderUsers() {
         </td>
         <td>
           <div class="action-group">
+            ${isPending ? `
+            <button
+              type="button"
+              class="btn btn-small btn-unblock"
+              data-action="status"
+              data-id="${id}"
+              data-status="active"
+            >
+              Approve
+            </button>` : ''}
+
             <button
               type="button"
               class="btn btn-small btn-edit"
@@ -982,7 +994,10 @@ document.getElementById('edit-user-form').addEventListener(
 async function updateUserStatus(userId, status) {
   if (!isAdmin()) return;
 
-  const action = status === 'blocked' ? 'block' : 'unblock';
+  const target = users.find((user) => String(user.user_id) === String(userId));
+  const action = status === 'blocked'
+    ? 'block'
+    : target?.status === 'pending' ? 'approve' : 'unblock';
 
   const confirmed = window.confirm(
     `Are you sure you want to ${action} this account?`
