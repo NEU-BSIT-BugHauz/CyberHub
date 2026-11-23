@@ -1,99 +1,81 @@
-# [S1-UIX-03] Wireframes & UI Documentation: Main Page, User Management & Rights Dialog
+# [S1-UIX-03] Low-Fidelity Wireframes Documentation: Main Page, User Management & Rights Dialog
 
 - **Task ID:** `S1-UIX-03`[cite: 5]
 - **Task Name:** Wireframes: main page, User Management list and Rights dialog[cite: 5]
-- **Sprint / Story Points:** `Sprint 1` | `4 pts`[cite: 5]
+- **Sprint / Week:** `Sprint 1` | `Week 1` | `4 pts`[cite: 5]
 - **Assignee:** UI/UX Designer[cite: 5]
-- **Figma File Link:** [https://www.figma.com/design/lh4I5nrLXfW2fF3RrMstXH/Custom-Login-page-and-Signup-page-UI--Community-?node-id=0-1&p=f&t=qeRECav5SLzn50bw-0]
-- **Last Updated:** 2026-11-23
+- **Figma File Link:** [Paste Figma Link Here]
+- **Last Updated:** 2026-11-24
 
 ---
 
-## 1. Screen Inventory & Navigation Architecture
+## 1. Wireframe Inventory & Scope
 
 
-| Screen / View | Route / Section | Access Scope | Status | Key Capabilities |
+| Screen Name | Route / Section | Access Scope | Status | Structural & Functional Focus |
 | :--- | :--- | :--- | :--- | :--- |
-| **Dashboard Overview (Main Page)** | `#dashboard` (`WORKSPACE`)[cite: 4] | All Authenticated Staff[cite: 4] | Completed[cite: 4] | Personalized welcome banner, role/status KPI cards, assigned module launcher grid[cite: 4] |
-| **User Management List** | `#user-management` (`ADMINISTRATION`)[cite: 4] | Admin / Superadmin[cite: 4] | In Progress | Create user form, searchable/filterable user directory table, role assignment & actions |
-| **Rights & Permissions Dialog / Matrix** | `#rights-permissions` (`ADMINISTRATION`)[cite: 4] | Admin / Superadmin[cite: 4] | In Progress | User selector, granular CRUD permission checkboxes (`View`, `Create`, `Edit`, `Delete`) per module[cite: 4] |
-| **Customer Accounts** | `#customer-accounts` (`ADMINISTRATION`)[cite: 4] | Admin / Superadmin[cite: 4] | Planned | Customer directory overview and account status controls |
-| **Superadmin Controls** | `#superadmin-controls` (`ADMINISTRATION`)[cite: 4] | Superadmin Only[cite: 4] | Planned | System-level configuration, access policy rules, and audit controls |
+| **Dashboard Overview (Main Page)** | `#dashboard` (`WORKSPACE`)[cite: 11] | All Staff[cite: 11] | Completed[cite: 11] | Topbar + left sidebar shell, welcome container with role callout, 3-column KPI row, and 5-card module grid[cite: 11] |
+| **User Management List** | `#user-management` (`ADMINISTRATION`)[cite: 12] | Admin / Superadmin[cite: 12] | Completed[cite: 12] | Top-right `+ Add User` trigger, searchable `Employee Accounts` table container, loading/empty state row, and 6-column table schema[cite: 12] |
+| **Rights & Permissions View / Dialog** | `#rights-permissions` (`ADMINISTRATION`)[cite: 13] | Superadmin Only[cite: 13] | Completed[cite: 13] | Account selector dropdown (`Select an account`), conditional permission matrix placeholder, and `Permission Policy` rule box[cite: 13] |
 
 ---
 
-## 2. Dashboard Shell & Persistent Layout
+## 2. Structural Shell & Navigation Architecture
+> 
 
-
-- **Topbar (`.topbar`):** `68px` sticky header (`#0F172A` background, `1px solid #1E293B` bottom border).
-  - **Left:** `40px × 40px` `CH` emerald gradient brand mark + `CyberHub` title and `Management Portal` subtitle[cite: 4].
-  - **Right:** Active user display (`Rolando Dala Jr.`)[cite: 4], emerald `.role-label` (`Superadmin`)[cite: 4], and `Sign out` outline button (`.btn-outline`)[cite: 4].
-- **Sidebar (`.sidebar`):** `250px` fixed desktop width (`#0F172A` background, `1px solid #1E293B` right border), organized into three grouped sections[cite: 4]:
-  - **`WORKSPACE`:** `Dashboard` (active state uses `rgba(16, 185, 129, 0.14)` fill and `#10B981` text)[cite: 4].
-  - **`MODULES`:** `Customer`, `Product`, `Human Resources`, `Sales`, `Reports`[cite: 4].
-  - **`ADMINISTRATION`:** `User Management`, `Customer Accounts`, `Rights & Permissions`, `Superadmin Controls`[cite: 4].
-  - **Sidebar Footer (`.sidebar-footer`):** Anchored status bar with an `8px` `#10B981` indicator dot and `CyberHub Workspace` label[cite: 4].
-- **Main Content Area (`.main-content`):** Fluid `1fr` column (`max-width: 1280px`, `28px 32px` padding, `20px` vertical stack gap).
+- **Top Header Bar:** Full-width horizontal bar containing:
+  - **Left:** Square icon placeholder + `CyberHub` / `Management Portal` title block[cite: 11].
+  - **Right:** Active user identity (`Rolando Dala Jr.` / `Superadmin`) and `Sign out` outlined button[cite: 11].
+- **Left Navigation Sidebar:** Fixed vertical rail separated by horizontal dividers into three grouped sections[cite: 11]:
+  - **`WORKSPACE`:** `Dashboard` (shaded gray pill indicates active selection)[cite: 11].
+  - **`MODULES`:** `Customer`, `Product`, `Human Resources`, `Sales`, `Reports` (each paired with a square icon placeholder)[cite: 11].
+  - **`ADMINISTRATION`:** `User Management`, `Customer Accounts`, `Rights & Permissions`, `Superadmin Controls`[cite: 11].
+  - **Sidebar Footer:** Bottom-anchored status indicator (`• CyberHub Workspace`)[cite: 11].
+- **Main Canvas & Footer:** Light neutral background canvas (`#F5F5F5` wireframe tone) with centered `CyberHub Management Portal` footer caption[cite: 12, 13].
 
 ---
 
 ## 3. Screen-by-Screen Wireframe Specifications
 
-### A. Main Page — Dashboard Overview
-- **Page Header (`.page-heading`):**
-  - Eyebrow: `WORKSPACE` (`0.72rem` Bold uppercase `#10B981`)[cite: 4].
-  - Title: `Dashboard Overview` (`1.55rem` Bold `#F8FAFC`)[cite: 4].
-  - Subtitle: `Welcome to your CyberHub workspace.` (`0.9rem` `#94A3B8`)[cite: 4].
-- **Welcome Banner (`.welcome-panel`):**
-  - Gradient surface (`#0F172A` to `#132238`), `1px solid #334155` border, `22px` padding.
-  - Left block: `WELCOME BACK` eyebrow, `Hello, Rolando Dala Jr.` heading, and role context description[cite: 4].
-  - Right badge (`.welcome-role`): Recessed `#0B1120` box (`10px 16px` padding, `6px` radius) showing `ACCOUNT ROLE` (`0.72rem`) and `Superadmin` (`#10B981`)[cite: 4].
-- **KPI Summary Row (`.overview-grid`):**
-  - 3-column responsive grid (`repeat(auto-fit, minmax(220px, 1fr))`, `16px` gap).
-  - Cards: **YOUR ROLE** (`Superadmin`), **AVAILABLE MODULES** (`5`), and **ACCOUNT STATUS** (`Active`) — values styled in `1.6rem` Bold `#10B981`[cite: 4].
-- **Module Launcher Panel (`.panel` + `.module-card-grid`):**
-  - Container heading: `Your Available Modules` + instructional subtitle[cite: 4].
-  - 5-card grid (`Customer`, `Product`, `Human Resources`, `Sales`, `Reports`)[cite: 4]:
-    - Recessed `#0B1120` cards (`1px solid #1E293B`, `#10B981` border on hover, `16px` padding)[cite: 4].
-    - Includes module title, short description, inline emerald permission summary (`View · Create · Edit · Delete`), and `Open workspace →` action link[cite: 4].
+### A. Main Page — Dashboard Overview (`#dashboard`)
+- **Page Header:** `WORKSPACE` eyebrow + `Dashboard Overview` heading + `Welcome to your CyberHub workspace.` subtitle[cite: 11].
+- **Welcome Banner Box:**
+  - Full-width outlined container (`1px` border, rounded corners)[cite: 11].
+  - Left side: `WELCOME BACK` label, `Hello, Rolando Dala Jr.` display heading, and workspace description[cite: 11].
+  - Right side: Nested `ACCOUNT ROLE` box displaying `Superadmin`[cite: 11].
+- **KPI Summary Row:**
+  - Equal-width 3-column card grid: **YOUR ROLE** (`Superadmin`), **AVAILABLE MODULES** (`5`), and **ACCOUNT STATUS** (`Active`)[cite: 11].
+- **Available Modules Container:**
+  - Outer panel titled `Your Available Modules` housing a 5-column horizontal card row (`Customer`, `Product`, `Human Resources`, `Sales`, `Reports`)[cite: 11].
+  - Each module card outlines: title, 2-line description, inline permission summary (`View · Create · Edit · Delete`), and `Open workspace →` text trigger[cite: 11].
 
-### B. User Management List
-- **Page Header:** `ADMINISTRATION` eyebrow + `User Management` heading + contextual description.
-- **Create / Invite User Panel (`.panel`):**
-  - Responsive `.form-grid` (`repeat(auto-fit, minmax(210px, 1fr))`, `14px` gap) with inputs for `Full Name`, `Email Address`, `Temporary Password`, and `Assigned Role` (`select` dropdown).
-  - `.form-actions` row with primary `Create User` button (`.btn-primary`) and inline `.message` feedback banner.
-- **User Directory Table Panel (`.panel`):**
-  - Header bar with title and right-aligned `.search-box` (`max-width: 260px`) for filtering by name, email, or role.
-  - `.table-wrapper` (`1px solid #1E293B`, `6px` radius) containing:
-    - **Columns:** `Name`, `Email`, `Role`, `Status`, `Actions` (e.g., `Edit Role`, `Reset Password`, `Manage Rights`, `Deactivate`).
-    - **Empty State (`.empty-state`):** Centered `24px` muted fallback message when no users match search criteria.
+### B. User Management List (`#user-management`)
+- **Page Header:** `ADMINISTRATION` eyebrow + `User Management` heading + subtitle (*"Create, update, and manage eligible employee accounts."*), paired with a right-aligned `+ Add User` button (opens Add User modal/form flow)[cite: 12].
+- **Employee Accounts Panel:**
+  - Panel header displaying `Employee Accounts`, dynamic account counter (`0 manageable accounts`), and right-aligned search input (`Search name, email, or employee num...`)[cite: 12].
+  - **Table Header Schema (6 Columns):** `EMPLOYEE` | `EMAIL` | `ROLE` | `STATUS` | `PASSWORD SETUP` | `ACTIONS`[cite: 12].
+  - **Table Body Wireframe State:** Full-width bordered state box demonstrating the asynchronous `Loading accounts...` state prior to data population[cite: 12].
 
-### C. Rights & Permissions Dialog / Matrix
-- **Presentation Variants:**
-  - *Inline Admin View (`#rights-permissions`):* Dedicated `.panel` inside the Administration section[cite: 4].
-  - *Modal / Dialog Trigger:* Accessible directly from a user row's `Manage Rights` action in the User Management list (`.icon-button` `32px × 32px` close trigger in dialog header).
-- **Target User Selector (`.permission-user-field`):**
-  - `max-width: 360px` `select` dropdown to choose an employee account, paired with `.permission-user-info` displaying their current role and email.
-- **Permission Matrix Table (`.permission-table`):**
-  - Separated by `.permission-table-heading` (`margin-top: 24px`, `padding-top: 20px`, `1px solid #1E293B`).
-  - **Rows:** System modules (`Customer`, `Product`, `Human Resources`, `Sales`, `Reports`)[cite: 4].
-  - **Columns:** `Module` (left-aligned) + centered `100px`-wide columns for `View`, `Create`, `Edit`, and `Delete` (`16px × 16px` `#10B981` checkboxes)[cite: 4].
-- **Footer Actions (`.permission-actions`):**
-  - `margin-top: 16px` action row with `Save Permissions` (`.btn-primary`), `Reset to Role Defaults` (`.btn-outline`), and status confirmation banner (`.message.success`).
+### C. Rights & Permissions (`#rights-permissions`)
+- **Page Header:** `SUPERADMIN ONLY` eyebrow + `Rights & Permissions` heading + subtitle (*"Assign module access and actions to Users and Admins."*)[cite: 13].
+- **Account Selection & Matrix Container (`Select an Account`):**
+  - Instructional copy (*"Choose a User or Admin whose permissions you want to manage."*)[cite: 13].
+  - `Employee account` dropdown selector (`Select an account`)[cite: 13].
+  - Nested placeholder box (*"Select an account to view or update its module permissions."*) reserving space for the interactive CRUD checkbox matrix once an account is chosen[cite: 13].
+- **Policy Callout Box (`Permission Policy`):**
+  - Full-width bottom card documenting role hierarchy rules (*"Superadmins have full access to every module. Regular Users and Admins receive only the permissions assigned to them. Missing permission assignments default to no access."*)[cite: 13].
 
 ---
 
-## 4. Handoff & Preview
-- **Figma Frame / Page Name:** `📐 Wireframes — Main & Admin (S1-UIX-03)`
-- **Visual Reference (Dashboard Overview — Superadmin State):**
+## 4. Handoff & Visual Previews
+- **Figma Frame / Page Name:** `📐 Wireframes — Main, User Management & Rights (S1-UIX-03)`
 
-![CyberHub Dashboard Overview Preview](./image_5d9527.png)[cite: 4]
+### Main Page (Dashboard Overview)
+![Dashboard Overview Wireframe](./image_5e7a5d.png)[cite: 11]
 
----
+### User Management List
+![User Management Wireframe](./image_5e7ad7.png)[cite: 12]
 
-## 5. Sign-Off Checklist
-- [x] Main Dashboard Overview wireframe & layout finalized[cite: 4]
-- [x] Sidebar navigation hierarchy (`Workspace`, `Modules`, `Administration`) defined[cite: 4]
-- [x] User Management list & search/filter wireframe finalized
-- [x] Rights & Permissions dialog/matrix states documented
-- [x] Figma prototype links connected for developer handoff
+### Rights & Permissions
+![Rights & Permissions Wireframe](./image_5e7ddf.png)[cite: 13]
+
