@@ -26,6 +26,18 @@ const PgSessionStore = connectPgSimple(session);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// TEMPORARY HTTPS DIAGNOSTIC
+// Remove this endpoint after troubleshooting the session issue.
+app.get('/api/debug/https', (req, res) => {
+  res.json({
+    secure: req.secure,
+    protocol: req.protocol,
+    production: isProduction,
+    proxyTrusted: app.get('trust proxy'),
+  });
+});
+
+// POSTGRESQL SESSION CONFIGURATION
 app.use(
   session({
     name: 'sid',
