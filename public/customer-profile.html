@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1224" />
+  <title>CyberHub | My Profile</title>
+  <link rel="stylesheet" href="/portal.css" />
+  <link rel="stylesheet" href="/customer-auth.css" />
+  <link rel="stylesheet" href="/customer-navigation.css" />
+  <script defer src="/js/customer-auth.js"></script>
+</head>
+<body class="portal-page" data-customer-page="profile">
+  <header class="portal-header">
+    <a class="portal-brand" href="/customer/dashboard"><span class="brand-logo">CH</span><span>CyberHub <small>Customer Portal</small></span></a>
+    <nav class="top-navigation customer-nav" aria-label="Customer navigation">
+        <a href="/customer/dashboard">Dashboard</a>
+        <a href="/customer/shop">Shop Products</a>
+        <a href="/customer/cart">My Cart</a>
+        <a href="/customer/checkout">Checkout</a>
+        <a href="/customer/orders">My Orders</a>
+        <a href="/customer/profile" aria-current="page">My Profile</a>
+      <button id="customer-logout" type="button" class="portal-button secondary">Sign out</button>
+    </nav>
+  </header>
+  <main class="customer-shell customer-nav-page">
+    <p class="choice-kicker">YOUR ACCOUNT</p>
+    <h1>My Profile</h1>
+    <p id="customer-auth-message" class="customer-message" role="status" aria-live="polite"></p>
+    <p class="customer-intro">Review the details linked to your customer account.</p>
+    <section class="customer-card" aria-label="Customer profile details">
+      <h2>Account information</h2>
+      <dl class="customer-details-grid">
+        <div><dt>Name</dt><dd id="customer-display-name">—</dd></div>
+        <div><dt>Customer number</dt><dd id="customer-display-number">—</dd></div>
+        <div><dt>Email address</dt><dd id="customer-display-email">—</dd></div>
+        <div><dt>Phone number</dt><dd id="customer-display-phone">—</dd></div>
+        <div><dt>Account status</dt><dd id="customer-display-status">—</dd></div>
+      </dl>
+    </section>
+    <p class="customer-info-panel">Profile editing and password changes are not yet available in this customer portal. Contact an administrator if you need changes to your details.</p>
+    <div class="customer-button-row"><a class="portal-button secondary" href="/customer/dashboard">Back to Dashboard</a></div>
+  </main>
+  <footer class="portal-footer">CyberHub · Customer Portal</footer>
+</body>
+</html>
