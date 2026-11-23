@@ -287,6 +287,20 @@ function showDashboard() {
     !isSuperadmin()
   );
 
+  document.getElementById('add-password-field').classList.toggle(
+    'hidden',
+    !isSuperadmin()
+  );
+
+  document.getElementById('add-confirm-password-field').classList.toggle(
+    'hidden',
+    !isSuperadmin()
+  );
+
+  document.getElementById('add-password-note').textContent = isSuperadmin()
+    ? 'Optional: Enter an initial password for the employee to use. If left blank, the employee must set a password through the password reset process. Share assigned passwords privately.'
+    : 'New accounts are created without a password. The employee must set their own password through the password reset process.';
+
   document.getElementById('edit-role-field').classList.toggle(
     'hidden',
     !isSuperadmin()
@@ -876,6 +890,27 @@ document.getElementById('add-user-form').addEventListener(
 
     if (isSuperadmin()) {
       payload.role = document.getElementById('add-role').value;
+
+      const initialPassword = document.getElementById('add-password').value;
+      const confirmPassword = document.getElementById('add-confirm-password').value;
+
+      if (initialPassword || confirmPassword) {
+        if (
+          initialPassword.length < 8 ||
+          initialPassword.length > 128 ||
+          initialPassword.trim().length === 0
+        ) {
+          showMessage(pageMessage, 'Initial password must be 8 to 128 characters and not blank.', 'error');
+          return;
+        }
+
+        if (initialPassword !== confirmPassword) {
+          showMessage(pageMessage, 'The initial passwords do not match.', 'error');
+          return;
+        }
+
+        payload.password = initialPassword;
+      }
     }
 
     submitButton.disabled = true;
