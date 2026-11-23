@@ -1,9 +1,19 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+const isSupabase =
+  process.env.DATABASE_URL &&
+  (process.env.DATABASE_URL.includes('supabase.com') ||
+    process.env.DATABASE_URL.includes('supabase.co'));
+
+const useSSL =
+  process.env.NODE_ENV === 'production' ||
+  process.env.DB_SSL === 'true' ||
+  Boolean(isSupabase);
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: useSSL ? { rejectUnauthorized: false } : false,
 });
 
 async function testConnection() {
