@@ -96,6 +96,9 @@ app.use('/api/customer-auth', customerAuthRoutes);
 const customerShopRoutes = require('./routes/customerShop');
 app.use('/api/customer-shop', customerShopRoutes);
 
+const customerShoppingRoutes = require('./routes/customerShopping');
+app.use('/api/customer-shopping', customerShoppingRoutes);
+
 // AUTHENTICATION ROUTES
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);

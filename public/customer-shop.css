@@ -18,3 +18,6 @@
 .customer-shop-price-date { color: var(--muted); font-size: .78rem; }
 .customer-shop-note { color: var(--muted); font-size: .85rem; line-height: 1.55; margin-top: 28px; }
 @media(max-width:600px) { .customer-shop-filters { align-items: stretch; } .customer-shop-filter { width: 100%; } .customer-shop-filters .portal-button { flex: 1; } }
+
+.customer-shop-add { margin-top: auto; align-self: flex-start; min-height: 40px; }
+.customer-shop-add:disabled { opacity: .6; cursor: wait; }
