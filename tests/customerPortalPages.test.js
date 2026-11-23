@@ -71,8 +71,16 @@ describe('customer portal navigation and separate staff entry', () => {
     expect(result.text).toContain('/js/customer-auth.js');
   });
 
-  test('pending shopping pages do not pretend checkout or orders work', async () => {
-    for (const page of ['shop', 'cart', 'checkout', 'orders']) {
+  test('shop page loads a real read-only catalog client', async () => {
+    const result = await request(app).get('/customer/shop')
+      .set('x-test-customer', 'yes').expect(200);
+    expect(result.text).toContain('id="shop-products"');
+    expect(result.text).toContain('id="customer-shop-filters"');
+    expect(result.text).toContain('/js/customer-shop.js');
+  });
+
+  test('cart, checkout, and orders remain labeled in development', async () => {
+    for (const page of ['cart', 'checkout', 'orders']) {
       const result = await request(app).get(`/customer/${page}`)
         .set('x-test-customer', 'yes').expect(200);
       expect(result.text).toContain('In development');
@@ -83,6 +91,8 @@ describe('customer portal navigation and separate staff entry', () => {
     await request(app).get('/js/customer-auth.js').expect(200);
     await request(app).get('/customer-auth.css').expect(200);
     await request(app).get('/customer-navigation.css').expect(200);
+    await request(app).get('/customer-shop.css').expect(200);
+    await request(app).get('/js/customer-shop.js').expect(200);
   });
 
   test('staff customer account management page remains available', async () => {
